@@ -1,0 +1,7 @@
+Transistors
+V
+
+R   resistor
+V   transistor
+C   condensator
+V   diod
