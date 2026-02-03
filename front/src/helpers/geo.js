@@ -1,4 +1,3 @@
-import { dpr } from './utils.js';
 
 export const getPrimitiveBounds = (prim) => {
 
@@ -68,76 +67,49 @@ export const clamp = (v, min, max) => {
 
 }
 
+export const pointsDistance = (pt1, pt2) => {
+    return Math.SQRT2(
+        Math.pow(pt1[0] - pt2[0], 2) + Math.pow(pt1[1] - pt2[1], 2)
+    )
 
-export const drawElement = (elem, ctx) => {
-    ctx.save();
-    try {
-        // ctx.translate(Math.round(elem.pos.x), Math.round(elem.pos.y));
-        // Округляем до целого физического пикселя, затем возвращаем в логику
-        ctx.translate(Math.round(elem.pos.x * dpr) / dpr, Math.round(elem.pos.y * dpr) / dpr);
-        ctx.lineWidth = 1 / dpr;
+}
+export const ptInRect = (rect, point) => {
+    return point[0] >= rect[0] &&
+        point[0] <= rect[2] &&
+        point[1] >= rect[1] &&
+        point[1] <= rect[3];
 
-        for (const prim of elem.turtle) {
+}
+export const floatEqual = (f1, f2, e = Number.EPSILON) => {
+    return Math.abs(f1 - f2) < e;
+}
+export const leq = (a, b, e = Number.EPSILON) => {
+    return (a < b) || (Math.abs(a - b) < e);
+}
+export const geq = (a, b, e = Number.EPSILON) => {
+    return (a > b) || (Math.abs(a - b) < e);
+}
 
-            ctx.beginPath();
-            switch (prim.code) {
-                case 'R': {// rectangle
-                    let [x, y, w, h] = prim.params;
-                    x = Math.round(x * elem.zoom) + 0.5;
-                    y = Math.round(y * elem.zoom) + 0.5;
-                    w = Math.round(w * elem.zoom);
-                    h = Math.round(h * elem.zoom);
-                    ctx.rect(x, y, w, h);
-                    ctx.stroke();
-                } break;
-                case 'L': {// line
-                    let [x, y, x2, y2] = prim.params;
-                    x = Math.round(x * elem.zoom) + 0.5;
-                    y = Math.round(y * elem.zoom) + 0.5;
-                    x2 = Math.round(x2 * elem.zoom) + 0.5;
-                    y2 = Math.round(y2 * elem.zoom) + 0.5;
+export const addPoint = (point, delta) => {
+    return [point[0] + delta[0], point[1] + delta[1]]
+}
+export const multiplyPoint = (point, m) => {
+    return [point[0] * m, point[1] * m]
+}
+export const transformRect = (rect, delta) => {
+    return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]
+}
 
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x2, y2);
-                    ctx.stroke();
-                } break;
-                case 'C': {// circle
-                    let [x, y, r] = prim.params;
-                    x = Math.round(x * elem.zoom) + 0.5;
-                    y = Math.round(y * elem.zoom) + 0.5;
-                    r = Math.round(r * elem.zoom);
+export const expandRect = (rect, x, y) => {
+    return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
+}
 
-                    ctx.arc(x, y, r, 0, 2 * Math.PI);
-                    ctx.stroke();
-                } break;
-                case 'P': {// polyline
-                    const paramsLen = prim.params.length;
-                    for (let p = 0; (p + 1) < paramsLen; p += 2) {
-                        let [x, y] = prim.params.slice(p, p + 2);
-                        x = Math.round(x * elem.zoom) + 0.5;
-                        y = Math.round(y * elem.zoom) + 0.5;
-                        if (p === 0) {
-                            ctx.moveTo(x, y);
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
+export const snapRect = (rect, snapX, snapY) => {
+    return [
+        Math.floor(rect[0] / snapX) * snapX,
+        Math.floor(rect[1] / snapX) * snapY,
+        Math.ceil(rect[2] / snapX) * snapX,
+        Math.ceil(rect[3] / snapX) * snapY,
 
-                    }
-
-                    // check if params count is odd, get last
-                    let style = 0;
-                    if (paramsLen % 2) {
-                        style = prim.params[paramsLen - 1];
-                    }
-                    switch (style) {
-                        case 0: ctx.stroke(); break; // 0 polyline
-                        case 1: ctx.closePath(); ctx.stroke(); break;// 1 polygon
-                        case 2: ctx.closePath(); ctx.fill(); break;  // 2 filled polygon
-                    }
-
-                } break;
-            }
-        }
-    } finally { ctx.restore(); }
-
+    ]
 }

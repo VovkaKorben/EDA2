@@ -17,12 +17,7 @@ function App() {
     const [libElements, setLibElements] = useState(JSON.parse(localStorage.getItem('libElements')) || []);
     const [schemaElements, setSchemaElements] = useState(
         JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements);
-    /* const [schemaElements, setSchemaElements] = useState(
-         [
-             { "id": 1769955447118, "typeId": 3, "pos": { "x": 200, "y": 100 } },
-                 { "id": 17699554418, "typeId": 2, "pos": { "x": 300, "y": 150 } }
-         ]);
- */
+   
     const refSchemaCanvas = useRef(null);
 
 
@@ -94,6 +89,11 @@ function App() {
             case 1: LoadElems(); break;
             case 2: ClearSchema(); break;
             case 3: refSchemaCanvas.current?.resetView(); break;
+            case 4:
+
+                console.log(JSON.stringify(libElements));
+                console.log(JSON.stringify(schemaElements));
+                break;
         }
     }
 

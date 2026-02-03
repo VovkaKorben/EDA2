@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+
 import { dpr } from '../helpers/utils.js';
-import { clamp, drawElement } from '../helpers/geo.js';
+import { drawElement, drawPins } from '../helpers/draw.js';
+import { clamp } from '../helpers/geo.js';
 import { prettify } from '../helpers/debug.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
@@ -35,14 +37,12 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
             const toDraw = {
                 ...libElement,
-                pos: {
-                    x: elem.pos.x * zoom - view.x,
-                    y: elem.pos.y * zoom - view.y
-                },
+                pos: [ elem.pos[0] * zoom - view.x, elem.pos[1] * zoom - view.y],
                 zoom: zoom,
                 rotate: elem.rotate,
             };
             drawElement(toDraw, ctx);
+            drawPins(toDraw, ctx);
         });
 
         // Тут позже добавим рисование сетки и проводов
@@ -112,10 +112,10 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         // calculate insertion position
         const canvasRect = canvasRef.current.getBoundingClientRect();
         const zoom = zoomLevels[view.zoomIndex];
-        const pos = {
-            x: (e.clientX - canvasRect.left + view.x) / zoom,
-            y: (e.clientY - canvasRect.top + view.y) / zoom,
-        }
+        const pos = [
+             (e.clientX - canvasRect.left + view.x) / zoom,
+             (e.clientY - canvasRect.top + view.y) / zoom
+        ]
 
         // get first available element index
         let newTypeIndex = 1;

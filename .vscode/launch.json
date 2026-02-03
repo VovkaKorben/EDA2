@@ -28,11 +28,23 @@
       "preLaunchTask": "clearConsole"
     },
     {
+      "name": "AStar Test",
+      "type": "node",
+      "request": "launch",
+      "program": "astar.js",
+      "cwd": "${workspaceFolder}/front/src/helpers",
+      "console": "integratedTerminal",
+    },
+    {
       "name": "Browser Start",
       "type": "chrome",
       "request": "launch",
       "url": "http://localhost:5173",
-      "webRoot": "${workspaceFolder}/front/src"
+      "webRoot": "${workspaceFolder}/front/src",
+      "skipFiles": [
+        "**/node_modules/**",
+        "<node_internals>/**"
+      ]
     }
   ],
   "compounds": [
