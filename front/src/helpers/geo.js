@@ -68,7 +68,7 @@ export const clamp = (v, min, max) => {
 }
 
 export const pointsDistance = (pt1, pt2) => {
-    return Math.SQRT2(
+    return Math.sqrt(
         Math.pow(pt1[0] - pt2[0], 2) + Math.pow(pt1[1] - pt2[1], 2)
     )
 

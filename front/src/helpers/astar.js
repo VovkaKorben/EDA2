@@ -143,9 +143,6 @@ const toGrid = (flatIndex) => [flatIndex % w, (flatIndex / w) | 0];
 const toCoords = (gridIndexes) => [gridX[gridIndexes[0]], gridY[gridIndexes[1]]]
 
 // get start and goal coords
-// const gridIndexToIndex = (point) => { return point[1] * w + point[0] };
-// const indexToGridIndex = (index) => { return [index % w, Math.floor(index / w)] };
-
 const startGridIndex = [
     gridX.findIndex(i => floatEqual(i, startPinCoords[0])),
     gridY.findIndex(i => floatEqual(i, startPinCoords[1]))
@@ -165,14 +162,16 @@ const fieldBounds = [0, 0, w - 1, h - 1];
 
 
 const doAStar = (startIndex, goalIndex) => {
-    /*
-    function reconstruct_path(cameFrom, current)
-    total_path:= { current }
-    while current in cameFrom.Keys:
-        current:= cameFrom[current]
-    total_path.prepend(current)
-    return total_path
-    */
+
+    const reconstruct_path = (current) => {
+
+        const total_path = [current];
+        while (cameFrom[current]) {
+            current = cameFrom[current];
+            total_path.push(current)
+        }
+        return total_path;
+    }
 
     const dist = (flatIndex1, flatIndex2) => {
         const gridIndex1 = toGrid(flatIndex1);
@@ -196,26 +195,6 @@ const doAStar = (startIndex, goalIndex) => {
         return idx;
     }
 
-    /*
-    оптимизированная хуйня
-    
-    const getNeighbors = (flatIndex) => {
-    const r = [];
-    const ix = flatIndex % w;
-    const iy = (flatIndex / w) | 0;
-
-    for (const [dx, dy] of DIRECTIONS) {
-        const nx = ix + dx;
-        const ny = iy + dy;
-
-        // Проверка границ без создания массива
-        if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-            r.push(ny * w + nx);
-        }
-    }
-    return r;
-}
-    */
     const getNeighbors = (flatIndex) => {
         const r = [];
         const gridIndexes = toGrid(flatIndex);
@@ -228,7 +207,7 @@ const doAStar = (startIndex, goalIndex) => {
         return r;
     }
     const openSet = [startIndex];
-    const cameFrom = new Array(w * h);
+    const cameFrom = new Array(w * h).fill(null);
     const gScore = new Float32Array(w * h).fill(Infinity);
     gScore[startIndex] = 0;
     const fScore = new Float32Array(w * h).fill(Infinity);
@@ -240,46 +219,21 @@ const doAStar = (startIndex, goalIndex) => {
         const lowestFIdx = getLowestFIndex();
         const currentFlatIndex = openSet[lowestFIdx];
         openSet.splice(lowestFIdx, 1);
-        if (currentFlatIndex === goalIndex) {//return reconstruct_path(cameFrom, current)
-            return true;
+        if (currentFlatIndex === goalIndex) {
+            return reconstruct_path(currentFlatIndex);
         }
 
 
-
+        const prevIndex = cameFrom[currentFlatIndex];
         const neighbors = getNeighbors(currentFlatIndex);
 
 
         for (const neighbor of neighbors) {
-            /*const currentFlatIndex = openSet[currentIndex]; // Для удобства
-const prevIndex = cameFrom[currentFlatIndex];
-let penalty = 0;
-
-if (prevIndex !== undefined) {
-    const [px, py] = toGrid(prevIndex);
-    const [cx, cy] = toGrid(currentFlatIndex);
-    const [nx, ny] = toGrid(neighbor);
-
-    // Считаем векторы движения
-    const dx1 = cx - px;
-    const dy1 = cy - py;
-    const dx2 = nx - cx;
-    const dy2 = ny - cy;
-
-    // Если вектор изменился — это поворот
-    if (dx1 !== dx2 || dy1 !== dy2) {
-        penalty = 50; // Подбери экспериментально (например, 10-100)
-    }
-}
-    */
-
-
             // считаем штраф за повороты
-            const prevIndex = cameFrom[currentIndex];
             let turnPenalty = 0;
-
-            if (prevIndex !== undefined) {
+            if (prevIndex !== null) {
                 const prevPos = toGrid(prevIndex);
-                const currPos = toGrid(currentIndex);
+                const currPos = toGrid(currentFlatIndex);
                 const nextPos = toGrid(neighbor);
 
                 // Если изменилась ось движения — это поворот
@@ -293,11 +247,9 @@ if (prevIndex !== undefined) {
                 }
             }
 
-
-            // let tentative_gScore = gScore[currentIndex] + dist(currentIndex, neighbor) + weights[neighbor]+ turnPenalty;
-            let tentative_gScore = gScore[currentIndex] + dist(currentIndex, neighbor);
+            let tentative_gScore = gScore[currentFlatIndex] + dist(currentFlatIndex, neighbor) + weights[neighbor] + turnPenalty;
             if (tentative_gScore < gScore[neighbor]) {
-                cameFrom[neighbor] = currentIndex;
+                cameFrom[neighbor] = currentFlatIndex;
                 gScore[neighbor] = tentative_gScore;
                 fScore[neighbor] = tentative_gScore + dist(neighbor, goalIndex);
 
@@ -309,10 +261,28 @@ if (prevIndex !== undefined) {
     }
     return null;
 }
+const ares = doAStar(startFlatIndex, goalFlatIndex);
+// if (ares) console.log(ares);
 
-doAStar(startFlatIndex, goalFlatIndex);
-
-
+/*
+{
+  "gridX": [...], 
+  "gridY": [...],
+  "elemRects": [[x1,y1,x2,y2], ...],
+  "startPinCoords": [x, y],
+  "goalPinCoords": [x, y],
+  "path": [index1, index2, ...] 
+}
+*/
+console.log('--------------------------------------------------------');
+console.log('{');
+console.log(`"gridX": ${prettify(gridX, 0)},`);
+console.log(`"gridY": ${prettify(gridY, 0)},`);
+console.log(`"elemRects": ${prettify(elemRects, 0)},`);
+console.log(`"startPinCoords": ${prettify(startPinCoords, 0)},`);
+console.log(`"goalPinCoords": ${prettify(goalPinCoords, 0)},`);
+console.log(`"path": ${prettify(ares, 0)}`);
+console.log('}');
 
 
 // ROUTE NOT FOUND
@@ -351,3 +321,6 @@ console.log('gridY',prettify(gridY,0));
 console.log('startPoint',prettify(startPoint,0));
 console.log(gridX);
 */
+
+
+
