@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
 import { dpr } from '../helpers/utils.js';
-import { drawElement, drawPins } from '../helpers/draw.js';
-import { clamp, multiplyPoint, addPoint } from '../helpers/geo.js';
+import { drawElement, drawPins, drawName } from '../helpers/draw.js';
+import { clamp, multiplyPoint, addPoint, pointsDistance } from '../helpers/geo.js';
 import { prettify } from '../helpers/debug.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
@@ -33,24 +33,42 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         return [x, y];
     }
 
+    const GlobalToScreen = useCallback((pt) => {
+        const x = pt[0] * view.zoom - view.x;
+        const y = pt[1] * view.zoom - view.y;
+        return [x, y];
+
+    }, [view]);
+    const pinToCoords = useCallback((elemPin) => {
+        const element = schemaElements.elements.find((e) => e.id === elemPin[0]);
+        const pinCoords = libElements[element.typeId].pins[elemPin[1]];
+        const pt = addPoint(element.pos, pinCoords);
+        return pt;
+    }, [schemaElements, libElements]);
+
     useImperativeHandle(ref, () => ({ resetView: () => { setView(DEFAULT_VIEW); } }));
 
 
     const findPinAt = (checkPoint) => {
-
-        schemaElements.elements.forEach(elem => {
+        // Внешний цикл по элементам
+        for (const elem of schemaElements.elements) {
             const libElement = libElements[elem.typeId];
-            Object.entries(libElement.pins).forEach((pinXY, pinIndex) => {
-                let pinCoords = multiplyPoint(pinXY, view.zoom);
-                pinCoords = addPoint(pinCoords, checkPoint);
-                console.log(pinCoords);
-            });
 
+            // Внутренний цикл по пинам объекта через деструктуризацию [pinName, pinValue]
+            for (const [pinName, pinValue] of Object.entries(libElement.pins)) {
+                let pinCoords = addPoint(pinValue, elem.pos);
+                const pointsDist = pointsDistance(pinCoords, checkPoint);
 
-        });
+                if (pointsDist <= 3) {
+                    // Как только нашли — записываем и выходим из функции совсем
+                    setSelectedPin([elem.id, pinName]);
+                    return;
+                }
+            }
+        }
 
-
-
+        // Если код дошел сюда, значит ничего не нашли
+        setSelectedPin(null);
     }
 
     const drawAll = useCallback(() => {
@@ -61,9 +79,27 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        const zoom = zoomLevels[view.zoomIndex];
-        //console.log('--------------------------------');
 
+        if (selectedPin) {
+            let pinCoords = pinToCoords(selectedPin);
+            pinCoords = GlobalToScreen(pinCoords);
+
+            const r = 35; // Радиус
+            ctx.lineWidth = 1; ctx.strokeStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(pinCoords[0], pinCoords[1], r, 0, 2 * Math.PI);
+            ctx.moveTo(pinCoords[0] - r, pinCoords[1]);
+            ctx.lineTo(pinCoords[0] + r, pinCoords[1]);
+            ctx.moveTo(pinCoords[0], pinCoords[1] - r);
+            ctx.lineTo(pinCoords[0], pinCoords[1] + r);
+            ctx.stroke();
+            /*
+                        ctx.beginPath()
+                        ctx.arc(pinCoords[0], pinCoords[1], 5, 0, 2 * Math.PI);
+                         ctx.closePath();
+                        ctx.fill();
+                        */
+        }
         // each element on schematic
         schemaElements.elements.forEach(elem => {
             const libElement = libElements[elem.typeId];
@@ -71,16 +107,22 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
             const toDraw = {
                 ...libElement,
-                pos: [elem.pos[0] * zoom - view.x, elem.pos[1] * zoom - view.y],
-                zoom: zoom,
+                pos: [elem.pos[0] * view.zoom - view.x, elem.pos[1] * view.zoom - view.y],
+                zoom: view.zoom,
                 rotate: elem.rotate,
+                typeIndex: elem.typeIndex,
             };
             drawElement(toDraw, ctx);
             drawPins(toDraw, ctx);
+            drawName(toDraw, ctx);
         });
 
+        //
+
+
+
         // Тут позже добавим рисование сетки и проводов
-    }, [view, libElements, schemaElements, selectedPin]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
+    }, [view, libElements, schemaElements, selectedPin, pinToCoords, GlobalToScreen]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
     const drawRef = useRef(drawAll);
     useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
 
@@ -213,13 +255,16 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
     };
     const handleMouseMove = (e) => {
 
-        const rect = canvasRef.current.getBoundingClientRect();
+        const pt = ScreenToGlobal(e.clientX, e.clientY);
+        findPinAt(pt);
+
+        /*  const rect = canvasRef.current.getBoundingClientRect();
         const mp = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         setMousePos(mp);
 
 
-        // findPinAt([mp.x, mp.y]);
-
+         findPinAt([mp.x, mp.y]);
+*/
         switch (Drag.current) {
             case DragMode.DRAGGING: {
                 const dx = e.clientX - lastPos.current.x;
@@ -249,7 +294,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
     };
     const handleMouseUp = (e) => {
-        //console.log(`zoom: ${zoomLevels[view.zoomIndex]} | ${prettify(view, 0)} local : ${prettify(mousePos, 0)} | global: ${prettify(globalPos, 0)}`);
+        //console.log(`zoom: ${ zoomLevels[view.zoomIndex]} | ${ prettify(view, 0) } local : ${ prettify(mousePos, 0) } | global: ${ prettify(globalPos, 0) }`);
         if (e.button !== DRAG_BUTTON) return;
         Drag.current = DragMode.NONE;
     };
