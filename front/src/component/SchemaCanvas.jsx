@@ -2,11 +2,11 @@ import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperat
 
 import { dpr } from '../helpers/utils.js';
 import { drawElement, drawPins } from '../helpers/draw.js';
-import { clamp } from '../helpers/geo.js';
+import { clamp, multiplyPoint, addPoint } from '../helpers/geo.js';
 import { prettify } from '../helpers/debug.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
-
+const DEFAULT_VIEW = { zoomIndex: 0, zoom: 1, x: 0, y: 0 };
 
 const DragMode = Object.freeze({
     NONE: 'NONE',
@@ -19,25 +19,31 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
     const canvasRef = useRef(null);
     const Drag = useRef(DragMode.NONE);
+    const [selectedPin, setSelectedPin] = useState(null);
 
-    const DEFAULT_VIEW = { zoomIndex: 0, x: 0, y: 0 };
     const [view, setView] = useState(() => {
         //    return DEFAULT_VIEW;
         const saved = localStorage.getItem('view'); return saved ? JSON.parse(saved) : DEFAULT_VIEW;
     });
+
+    const ScreenToGlobal = (mx, my) => {
+        const canvasRect = canvasRef.current.getBoundingClientRect();
+        let x = (mx - canvasRect.left + view.x) / view.zoom;
+        let y = (my - canvasRect.top + view.y) / view.zoom;
+        return [x, y];
+    }
+
     useImperativeHandle(ref, () => ({ resetView: () => { setView(DEFAULT_VIEW); } }));
 
 
-    const findPinAt = (point) => {
+    const findPinAt = (checkPoint) => {
 
-
-        const pos = [(point[0] + view.x) / tz, (point[1] + view.y) / tz];
-        // Теперь pos будет точно таким же, как globalPos
-        console.log("Поиск пина в координатах мира:", pos);
         schemaElements.elements.forEach(elem => {
             const libElement = libElements[elem.typeId];
-            libElement.pins.forEach(pin => {
-
+            Object.entries(libElement.pins).forEach((pinXY, pinIndex) => {
+                let pinCoords = multiplyPoint(pinXY, view.zoom);
+                pinCoords = addPoint(pinCoords, checkPoint);
+                console.log(pinCoords);
             });
 
 
@@ -74,7 +80,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         });
 
         // Тут позже добавим рисование сетки и проводов
-    }, [view, libElements, schemaElements]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
+    }, [view, libElements, schemaElements, selectedPin]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
     const drawRef = useRef(drawAll);
     useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
 
@@ -112,6 +118,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
             const new_view = {
                 zoomIndex: newZoomIndex,
+                zoom: zoomLevels[newZoomIndex],
                 x: (mousePos.x + prev.x) * (newZoom / oldZoom) - mousePos.x,
                 y: (mousePos.y + prev.y) * (newZoom / oldZoom) - mousePos.y,
             };
@@ -139,10 +146,10 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
         // calculate insertion position
         const canvasRect = canvasRef.current.getBoundingClientRect();
-        const zoom = zoomLevels[view.zoomIndex];
+
         const pos = [
-            (e.clientX - canvasRect.left + view.x) / zoom,
-            (e.clientY - canvasRect.top + view.y) / zoom
+            (e.clientX - canvasRect.left + view.x) / view.zoom,
+            (e.clientY - canvasRect.top + view.y) / view.zoom
         ]
 
         // get first available element index
@@ -173,9 +180,6 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         };
         onAddElement(newElement);
     };
-
-
-
     const handleDragOver = (e) => {
         e.preventDefault(); // РАЗРЕШАЕМ DROP
     };
@@ -183,7 +187,6 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
 
     const lastPos = useRef(false);
-
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
     const tz = zoomLevels[view.zoomIndex];
     const globalPos = {
@@ -194,12 +197,9 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
     const handleMouseDown = (e) => {
         if (e.button !== DRAG_BUTTON) return;
         // check pins
-        const rect = canvasRef.current.getBoundingClientRect();
-        const mp = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        // setMousePos(mp);
+        const pt = ScreenToGlobal(e.clientX, e.clientY);
 
-
-        findPinAt([mp.x, mp.y]);
+        findPinAt(pt);
 
 
         // check elems
@@ -218,7 +218,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         setMousePos(mp);
 
 
-        findPinAt([mp.x, mp.y]);
+        // findPinAt([mp.x, mp.y]);
 
         switch (Drag.current) {
             case DragMode.DRAGGING: {
