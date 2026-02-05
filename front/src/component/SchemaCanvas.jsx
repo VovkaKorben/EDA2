@@ -6,11 +6,19 @@ import { clamp } from '../helpers/geo.js';
 import { prettify } from '../helpers/debug.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
+
+
+const DragMode = Object.freeze({
+    NONE: 'NONE',
+    DRAGGING: 'DRAGGING',
+    ROUTING: 'ROUTING',
+    SELECTED: 'SELECTED'
+});
 const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, ref) => {
 
 
     const canvasRef = useRef(null);
-
+    const Drag = useRef(DragMode.NONE);
 
     const DEFAULT_VIEW = { zoomIndex: 0, x: 0, y: 0 };
     const [view, setView] = useState(() => {
@@ -18,6 +26,26 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         const saved = localStorage.getItem('view'); return saved ? JSON.parse(saved) : DEFAULT_VIEW;
     });
     useImperativeHandle(ref, () => ({ resetView: () => { setView(DEFAULT_VIEW); } }));
+
+
+    const findPinAt = (point) => {
+
+
+        const pos = [(point[0] + view.x) / tz, (point[1] + view.y) / tz];
+        // Теперь pos будет точно таким же, как globalPos
+        console.log("Поиск пина в координатах мира:", pos);
+        schemaElements.elements.forEach(elem => {
+            const libElement = libElements[elem.typeId];
+            libElement.pins.forEach(pin => {
+
+            });
+
+
+        });
+
+
+
+    }
 
     const drawAll = useCallback(() => {
         const canvas = canvasRef.current;
@@ -37,7 +65,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
             const toDraw = {
                 ...libElement,
-                pos: [ elem.pos[0] * zoom - view.x, elem.pos[1] * zoom - view.y],
+                pos: [elem.pos[0] * zoom - view.x, elem.pos[1] * zoom - view.y],
                 zoom: zoom,
                 rotate: elem.rotate,
             };
@@ -113,8 +141,8 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
         const canvasRect = canvasRef.current.getBoundingClientRect();
         const zoom = zoomLevels[view.zoomIndex];
         const pos = [
-             (e.clientX - canvasRect.left + view.x) / zoom,
-             (e.clientY - canvasRect.top + view.y) / zoom
+            (e.clientX - canvasRect.left + view.x) / zoom,
+            (e.clientY - canvasRect.top + view.y) / zoom
         ]
 
         // get first available element index
@@ -153,7 +181,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
     };
 
 
-    const isDragging = useRef(false);
+
     const lastPos = useRef(false);
 
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
@@ -165,31 +193,65 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement }, 
 
     const handleMouseDown = (e) => {
         if (e.button !== DRAG_BUTTON) return;
-        isDragging.current = true;
+        // check pins
+        const rect = canvasRef.current.getBoundingClientRect();
+        const mp = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        // setMousePos(mp);
+
+
+        findPinAt([mp.x, mp.y]);
+
+
+        // check elems
+
+
+        // none from above - simple canvas drag
+        Drag.current = DragMode.DRAGGING;
+
+        // Drag.current = true;
         lastPos.current = { x: e.clientX, y: e.clientY };
     };
     const handleMouseMove = (e) => {
-        const rect = canvasRef.current.getBoundingClientRect();
-        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
 
-        // canvas drag handler
-        if (isDragging.current) {
-            const dx = e.clientX - lastPos.current.x;
-            const dy = e.clientY - lastPos.current.y;
-            setView(prev => (
-                { ...prev, x: prev.x - dx, y: prev.y - dy }
-            ));
-            lastPos.current = { x: e.clientX, y: e.clientY };
-            return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const mp = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        setMousePos(mp);
+
+
+        findPinAt([mp.x, mp.y]);
+
+        switch (Drag.current) {
+            case DragMode.DRAGGING: {
+                const dx = e.clientX - lastPos.current.x;
+                const dy = e.clientY - lastPos.current.y;
+                setView(prev => (
+                    { ...prev, x: prev.x - dx, y: prev.y - dy }
+                ));
+                lastPos.current = { x: e.clientX, y: e.clientY };
+            }
+                break;
+
+
         }
 
+        // const pin = findPinAt(
+
+
+        /* 
+     
+          // canvas drag handler
+          if (isDragging.current) {
+             
+              return;
+          }
+    */
         // simple mouse move
 
     };
     const handleMouseUp = (e) => {
         //console.log(`zoom: ${zoomLevels[view.zoomIndex]} | ${prettify(view, 0)} local : ${prettify(mousePos, 0)} | global: ${prettify(globalPos, 0)}`);
         if (e.button !== DRAG_BUTTON) return;
-        isDragging.current = false;
+        Drag.current = DragMode.NONE;
     };
 
 
