@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperat
 
 import { dpr } from '../helpers/utils.js';
 import { drawElement, drawPins, drawName } from '../helpers/draw.js';
-import { clamp, multiplyPoint, addPoint, pointsDistance, transformRect, ptInRect } from '../helpers/geo.js';
+import { clamp, addPoint, pointsDistance, transformRect, ptInRect } from '../helpers/geo.js';
 import { prettify } from '../helpers/debug.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
@@ -25,19 +25,25 @@ const DrawColor = Object.freeze({
     HOVERED: '#5577FF',
     SELECTED: 'blue'
 });
-const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, hoveredChanged, selectedChanged, elemChanged }, ref) => {
-    const applyRotate = (elem) => {
-        const rotatedTurtle = {};
-        const rotatedPins = {};
+const SchemaCanvas = forwardRef(({
+    libElements, schemaElements,
 
-    }
+    hovered, selected,
+    hoveredChanged, selectedChanged,
+
+    onElemChanged
+}, ref) => {
 
     const canvasRef = useRef(null);
     const dragMode = useRef(null);
+    const schemaRef = useRef(schemaElements);
+    useEffect(() => { schemaRef.current = schemaElements; }, [schemaElements]);
+
+    const selectedRef = useRef(selected);
+    useEffect(() => { selectedRef.current = selected; }, [selected]);
     // const [selectedPin, setSelectedPin] = useState(null);
 
-    const [hovered, setHovered] = useState(null);
-    const [selected, setSelected] = useState(null);
+    // const [hovered, setHovered] = useState(null);    const [selected, setSelected] = useState(null);
 
     // const selectedElements = useRef(new Set());
     // const selectedWires = useRef(new Set());
@@ -65,7 +71,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
         const x = pt[0] * view.zoom - view.x;
         const y = pt[1] * view.zoom - view.y;
         return [x, y];
-
+ 
 }, [view]);
 */
 
@@ -79,14 +85,14 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
             const y = pt[1] * view.zoom - view.y;
             return [x, y];
         };
-        const RectGlobalToScreen = (rect) => {
-            const x1 = rect[0] * view.zoom - view.x;
-            const y1 = rect[1] * view.zoom - view.y;
-            const x2 = rect[2] * view.zoom - view.x;
-            const y2 = rect[3] * view.zoom - view.y;
-            return [x1, y1, x2 - x1, y2 - y1];
-
-        };
+        /*  const RectGlobalToScreen = (rect) => {
+              const x1 = rect[0] * view.zoom - view.x;
+              const y1 = rect[1] * view.zoom - view.y;
+              const x2 = rect[2] * view.zoom - view.x;
+              const y2 = rect[3] * view.zoom - view.y;
+              return [x1, y1, x2 - x1, y2 - y1];
+  
+          };*/
         const pinToCoords = (pin) => {
             const elem = schemaElements.elements[pin.elementId];
             const pinCoords = libElements[elem.typeId].pins[elem.rotate][pin.pinIdx];
@@ -146,7 +152,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
 
 
         // Тут позже добавим рисование сетки и проводов
-    }, [view, libElements, schemaElements,  hovered, selected]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
+    }, [view, libElements, schemaElements, hovered, selected]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
     const drawRef = useRef(drawAll);
     useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
 
@@ -166,6 +172,32 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
 
         return () => resizeObserver.disconnect();
     }, []);
+
+    // keyboard processing
+    useEffect(() => {
+
+        const rotateElement = (reset) => {
+            const selected = selectedRef.current;
+            if (!(selected && selected.type === ObjectType.ELEMENT)) return;
+            const elements = schemaRef.current.elements;
+            const elem = elements[selected.elementId];
+            const newRotate = reset ? 0 : (elem.rotate + 1) % 4;
+            const updatedElem = { ...elem, rotate: newRotate };
+            onElemChanged(updatedElem);
+        };
+
+
+
+        const handleKeyDown = (event) => {
+            switch (event.code) {
+                case 'KeyR': rotateElement(false); break;
+                case 'KeyT': rotateElement(true); break;
+            }
+
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onElemChanged]);
     // POS + ZOOM
     useEffect(() => {
         localStorage.setItem('view', JSON.stringify(view));
@@ -236,8 +268,8 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
             rotate: 0,
             typeIndex: newTypeIndex
         };
-        applyRotate(newElement);
-        onAddElement(newElement);
+
+        onElemChanged(newElement);
     };
     const handleDragOver = (e) => {
         e.preventDefault(); // РАЗРЕШАЕМ DROP
@@ -287,7 +319,6 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
         const pt = ScreenToGlobal(e.clientX, e.clientY);
         const obj = getObjectUnderCursor(pt);
         selectedChanged(obj);
-        setSelected(obj);
 
         if (obj) {
             if (obj.type === ObjectType.ELEMENT) {
@@ -299,26 +330,16 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
 
         } else  // none from above - simple canvas drag
             dragMode.current = DragMode.SCROLL;
-
         lastPos.current = { x: e.clientX, y: e.clientY };
-
-
-
-
-
-
-        // Drag.current = true;
-
     };
 
 
     const handleMouseMove = (e) => {
         const pt = ScreenToGlobal(e.clientX, e.clientY);
-        setHovered(() => {
-            const obj = getObjectUnderCursor(pt);
-            hoveredChanged(obj);
-            return obj;
-        });
+
+        const obj = getObjectUnderCursor(pt);
+        hoveredChanged(obj);
+
 
         // JUST FOR DEBUG --------------------
         const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -343,7 +364,7 @@ const SchemaCanvas = forwardRef(({ libElements, schemaElements, onAddElement, ho
                     // alert(1);
                     const newElem = { ...schemaElements.elements[selected.elementId] };
                     newElem.pos = addPoint(newElem.pos, [dx / view.zoom, dy / view.zoom]);
-                    elemChanged(newElem);
+                    onElemChanged(newElem);
                 } break;
 
             }

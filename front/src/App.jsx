@@ -17,8 +17,6 @@ function App() {
 
     const [hovered, setHovered] = useState(null);
     const [selected, setSelected] = useState(null);
-    const hoveredChanged = (obj) => setHovered(obj);
-    const selectedChanged = (obj) => setSelected(obj);
 
 
 
@@ -127,19 +125,19 @@ function App() {
                 break;
         }
     }
-
-    const handleAddElement = (newElement) => {
-        setSchemaElements(prev => ({
-            ...prev,
-            elements: {
-                ...prev.elements,
-                [newElement.id]: newElement
-            }
-
-
-        }));
-    };
-
+    /*
+        const handleAddElement = (newElement) => {
+            setSchemaElements(prev => ({
+                ...prev,
+                elements: {
+                    ...prev.elements,
+                    [newElement.id]: newElement
+                }
+    
+    
+            }));
+        };
+    */
 
     const handleElemChanged = (elem) => {
         setSchemaElements(prev => ({
@@ -180,10 +178,14 @@ function App() {
                     ref={refSchemaCanvas}
                     libElements={libElements}
                     schemaElements={schemaElements}
-                    onAddElement={handleAddElement}
-                    hoveredChanged={hoveredChanged}
-                    selectedChanged={selectedChanged}
-                    elemChanged={handleElemChanged}
+                    // onAddElement={handleAddElement}
+
+                    hovered={hovered}
+                    selected={selected}
+
+                    hoveredChanged={(obj) => setHovered(obj)}
+                    selectedChanged={(obj) => setSelected(obj)}
+                    onElemChanged={handleElemChanged}
                 /></div>
 
 
