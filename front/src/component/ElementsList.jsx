@@ -3,11 +3,11 @@ import { prettify } from '../helpers/debug.js';
 
 
 
-const ElementsList = ({ schemaElements, libElements }) => {
+const ElementsList = ({ schemaElements, libElements, selected, hovered }) => {
     return (
         <React.Fragment>
 
-            {schemaElements.map((e) => {
+            {Object.values(schemaElements).map((e) => {
                 return <div
                     key={e.id}
                     className='elements-list'
@@ -21,6 +21,9 @@ const ElementsList = ({ schemaElements, libElements }) => {
 
 
             }
+
+            {prettify(selected)}<br />
+            {prettify(hovered)}<br />
         </React.Fragment>
 
 

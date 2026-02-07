@@ -1,3 +1,53 @@
+export const rotatePoint = (pt, rotateIndex) => {
+    switch (rotateIndex) {
+        case 0: return [pt[0], pt[1]];
+        case 1: return [-pt[1], pt[0]];
+        case 2: return [-pt[0], -pt[1]];
+        case 3: return [pt[1], -pt[0]];
+        default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
+    }
+}
+
+export const rotatePrimitive = (prim, rotateIndex) => {
+    const p = prim.params;
+    let params;
+    switch (prim.code) {
+        case 'R':
+            params = [
+                ...rotatePoint(p.slice(0, 2), rotateIndex),
+                ...rotatePoint(p.slice(2, 4), rotateIndex)
+            ];
+            break;
+        case 'L':
+            params = [
+                ...rotatePoint(p.slice(0, 2), rotateIndex),
+                ...rotatePoint(p.slice(2, 4), rotateIndex)
+            ];
+            break;
+        case 'C':
+            params = [
+                ...rotatePoint(p.slice(0, 2), rotateIndex),
+                ...p.slice(2, 3)
+            ];
+            break;
+        case 'P': {
+
+            params = [];
+            const pointsCount = (p.length / 2) | 0;
+            for (let ptIndex = 0; ptIndex < pointsCount; ptIndex++) {
+                params.push(...rotatePoint(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
+            }
+            // append poly mode
+            params.push(...p.slice(pointsCount * 2, pointsCount * 2 + 1));
+
+        } break;
+
+
+        default: throw new Error(`Invalid primitive code: ${prim.code}`);
+    }
+    return { 'code': prim.code, params: params };
+
+}
 
 export const getPrimitiveBounds = (prim) => {
 

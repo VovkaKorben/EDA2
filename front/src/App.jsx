@@ -5,19 +5,27 @@ import ElementsList from './component/ElementsList';
 import Library from './component/Library';
 import './App.css'
 import { API_URL } from './helpers/utils.js';
-import { getPrimitiveBounds, expandBounds } from './helpers/geo.js';
+import { getPrimitiveBounds, expandBounds, rotatePrimitive, rotatePoint } from './helpers/geo.js';
 import { prettify } from './helpers/debug.js';
 
 const defaultSchemaElements = {
-    elements: [],
+    elements: {},
     wires: []
 };
 
 function App() {
+
+    const [hovered, setHovered] = useState(null);
+    const [selected, setSelected] = useState(null);
+    const hoveredChanged = (obj) => setHovered(obj);
+    const selectedChanged = (obj) => setSelected(obj);
+
+
+
     const [libElements, setLibElements] = useState(JSON.parse(localStorage.getItem('libElements')) || []);
     const [schemaElements, setSchemaElements] = useState(
         JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements);
-   
+
     const refSchemaCanvas = useRef(null);
 
 
@@ -27,52 +35,75 @@ function App() {
         const result = await resp.json();
         const elem_data = {};
 
-        if (resp.ok && result.success) {
-            result.data.forEach((e) => {
+        if (!(resp.ok && result.success))
+            return;
 
-                // explode primitives to objects
-                const parsedGroups = [];
-                let bounds = [Infinity, Infinity, -Infinity, -Infinity];
-                if (e.turtle) {
-                    const primitiveGroup = [...e.turtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+        result.data.forEach((rawElem) => {
+            // explode primitives to objects
+            const rawPrimitives = [];
+            if (rawElem.turtle) {
+                const primitiveGroup = [...rawElem.turtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+                // split each primitive to CODE + PARAMS
+                for (const prim of primitiveGroup) {
+                    const parsedPrim = {
+                        code: prim[1].toUpperCase(),
+                        params: prim[2].split(',').map((i) => parseFloat(i))
+                    };
+                    rawPrimitives.push(parsedPrim);
+                }
+            }
 
-                    // split each primitive to CODE + PARAMS
-                    for (const prim of primitiveGroup) {
-                        const parsedPrim = {
-                            code: prim[1].toUpperCase(),
-                            params: prim[2].split(',').map((i) => parseFloat(i))
-                        };
-                        // console.log(e.name, parsedPrim);
-                        parsedGroups.push(parsedPrim);
-                    }
+            // explode pins to coords
+            const rawPins = {};
 
-                    // calc bounds
-                    for (const prim of parsedGroups) {
-                        const primBounds = getPrimitiveBounds(prim);
-                        bounds = expandBounds(bounds, primBounds);
-                    }
+            let pinsGroup = rawElem.pins || '';
+            pinsGroup = pinsGroup.replace(/\s/g, '');
+            pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
+            for (const pin of pinsGroup) {
+                rawPins[pin[1]] = [+pin[2], +pin[3]];
+            }
+
+            // prepare for element rotating
+            const turtle = Array.from({ length: 4 }, () => []);
+            const pins = Array.from({ length: 4 }, () => ({}));
+            const bounds = Array.from({ length: 4 }, () => [Infinity, Infinity, -Infinity, -Infinity]);
+
+            for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
+
+                // rotate all primitives
+                // bounds[rotateIndex] =;
+                for (const prim of rawPrimitives) {
+                    const rotatedPrimitive = rotatePrimitive(prim, rotateIndex);
+                    turtle[rotateIndex].push(rotatedPrimitive);
+
+                    // get bounds for current and accumulate
+                    const primitiveBounds = getPrimitiveBounds(rotatedPrimitive);
+                    bounds[rotateIndex] = expandBounds(bounds[rotateIndex], primitiveBounds);
                 }
 
-                // explode pins to coords
-                const pins = {};
-                const pinsGroup = [...(e.pins || '').matchAll(/(\d+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)]
-                for (const pin of pinsGroup) {
-                    pins[+pin[1]] = [+pin[2], +pin[3]];
+                // rotate pins
+                for (let [pinName, pinCoords] of Object.entries(rawPins)) {
+                    pins[rotateIndex][pinName] = rotatePoint(pinCoords, rotateIndex);
+
                 }
-                console.log(prettify(pins, 0));
 
-                elem_data[e.typeId] =
-                {
-                    ...e,
-                    turtle: parsedGroups,
-                    pins: pins,
-                    bounds: bounds
-                };
+            }
 
 
-            });
-            setLibElements(elem_data);
-        }
+            elem_data[rawElem.typeId] =
+            {
+                typeId: rawElem.typeId,
+                abbr: rawElem.abbr,
+                descr: rawElem.descr,
+                name: rawElem.name,
+                turtle: turtle,
+                pins: pins,
+                bounds: bounds
+            };
+
+        });
+        setLibElements(elem_data);
+
     }
     const ClearSchema = () => { setSchemaElements(defaultSchemaElements) }
     useEffect(() => {
@@ -100,14 +131,28 @@ function App() {
     const handleAddElement = (newElement) => {
         setSchemaElements(prev => ({
             ...prev,
-            elements: [
+            elements: {
                 ...prev.elements,
-                newElement
-            ]
+                [newElement.id]: newElement
+            }
 
 
         }));
     };
+
+
+    const handleElemChanged = (elem) => {
+        setSchemaElements(prev => ({
+            ...prev,
+            elements: {
+                ...prev.elements,
+                [elem.id]: elem
+            }
+
+
+        }));
+    };
+
 
     return (
         <>
@@ -124,6 +169,10 @@ function App() {
                 <ElementsList
                     schemaElements={schemaElements.elements}
                     libElements={libElements}
+                    hovered={hovered}
+                    selected={selected}
+
+
                 />
             </div>
             <div className="schema">
@@ -132,6 +181,9 @@ function App() {
                     libElements={libElements}
                     schemaElements={schemaElements}
                     onAddElement={handleAddElement}
+                    hoveredChanged={hoveredChanged}
+                    selectedChanged={selectedChanged}
+                    elemChanged={handleElemChanged}
                 /></div>
 
 

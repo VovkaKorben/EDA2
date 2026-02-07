@@ -8,8 +8,10 @@ export const drawElement = (elem, ctx) => {
         // Округляем до целого физического пикселя, затем возвращаем в логику
         ctx.translate(Math.round(elem.pos[0] * dpr) / dpr, Math.round(elem.pos[1] * dpr) / dpr);
         ctx.lineWidth = 1 / dpr;
-        ctx.strokeStyle = 'black';
-        for (const prim of elem.turtle) {
+        ctx.strokeStyle = elem.drawColor;
+        ctx.fillStyle = elem.drawColor;
+
+        for (const prim of elem.turtle[elem.rotate]) {
 
             ctx.beginPath();
             switch (prim.code) {
@@ -73,11 +75,6 @@ export const drawElement = (elem, ctx) => {
     } finally { ctx.restore(); }
 
 }
-
-
-
-
-
 export const drawPins = (elem, ctx) => {
     ctx.save();
     try {
@@ -89,7 +86,7 @@ export const drawPins = (elem, ctx) => {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
 
-        for (const [pinIndex, pinCoords] of Object.entries(elem.pins)) {
+        for (const [pinIndex, pinCoords] of Object.entries(elem.pins[elem.rotate])) {
             // let pt = addPoint(pinCoords, elem.pos);
             let pt = multiplyPoint(pinCoords, elem.zoom);
             pt = addPoint(pt, [7, -7]);
@@ -101,8 +98,6 @@ export const drawPins = (elem, ctx) => {
     finally { ctx.restore(); }
 
 }
-
-
 export const drawName = (elem, ctx) => {
     ctx.save();
     try {

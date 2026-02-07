@@ -41,7 +41,28 @@ app.get('/api/library', async (req, res) => {
 });
 
 
+// Функция для очистки ресурсов
+const gracefulShutdown = async (signal) => {
+    console.log(`\n⚠️  Received ${signal}. Shutting down...`);
 
+    server.close(async () => {
+        console.log('🛑 HTTP server closed.');
+
+        try {
+            const db = await openDb();
+            await db.close();
+            console.log('🗄️  Database connection closed.');
+            process.exit(0);
+        } catch (err) {
+            console.error('Error during database closure:', err);
+            process.exit(1);
+        }
+    });
+};
+
+// Слушатели сигналов
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 
 
