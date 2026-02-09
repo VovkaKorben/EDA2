@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
-import { dpr } from '../helpers/utils.js';
-import { drawElement, drawPins, drawName } from '../helpers/draw.js';
+import { dpr, ObjectType } from '../helpers/utils.js';
+import { drawElement, drawPins, drawName, adjustPoint, drawGridDebug } from '../helpers/draw.js';
 import { clamp, addPoint, pointsDistance, transformRect, ptInRect, multiplyRect } from '../helpers/geo.js';
 import { prettify, prettify_v2 } from '../helpers/debug.js';
-import { prepareAStarGrid, coordsToFlat, doAStar } from '../helpers/astar.js';
+import { prepareAStarGrid, coordsToFlat, doAStar, routeToCoords } from '../helpers/astar.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
 const DEFAULT_VIEW = { zoomIndex: 0, zoom: 1, x: 0, y: 0 };
@@ -14,11 +14,6 @@ const DragMode = Object.freeze({
     SCROLL: 'SCROLL',
     ROUTING: 'ROUTING',
     ELEMENT: 'ELEMENT'
-});
-const ObjectType = Object.freeze({
-    PIN: 'PIN',
-    ELEMENT: 'ELEMENT',
-    WIRE: 'WIRE'
 });
 
 const DrawColor = Object.freeze({
@@ -32,7 +27,7 @@ const SchemaCanvas = forwardRef(({
     hovered, selected,
     hoveredChanged, selectedChanged,
 
-    onElemChanged
+    onElemChanged, onElemDeleted
 }, ref) => {
 
     const canvasRef = useRef(null);
@@ -55,7 +50,6 @@ const SchemaCanvas = forwardRef(({
     // debug
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
     const [globalPos, setGlobalPos] = useState([0, 0]);
-
 
 
 
@@ -87,13 +81,25 @@ const SchemaCanvas = forwardRef(({
         return !!aStarRef.current;
     }, [view, libElements, schemaElements]);
     const routeAStar = (goalCoords) => {
+        // check for A* grid initialized
         if (!aStarRef.current) return;
+
+        // get Goal-Flat-Index from mouse
         const goalIdx = coordsToFlat(aStarRef.current, goalCoords);
+
+        // check goal is really changed
         if (aStarRef.current.goalIdx === goalIdx) return;
         aStarRef.current.goalIdx = goalIdx;
-        const route = doAStar(aStarRef.current);
-        console.log(prettify(route, 0));
-     
+
+        // calc flat-indexes
+        const indexRoute = doAStar(aStarRef.current);
+        // convert flat-indexes to global-coords
+        const coordsRoute = routeToCoords(aStarRef.current, indexRoute);
+
+
+        // console.log(prettify(coordsRoute, 0));
+        setActiveRoute(coordsRoute);
+
     }
 
 
@@ -122,6 +128,7 @@ const SchemaCanvas = forwardRef(({
             const y = pt[1] * viewRef.current.zoom - viewRef.current.y;
             return [x, y];
         };
+
         /*  const RectGlobalToScreen = (rect) => {
               const x1 = rect[0] * viewRef.current.zoom - viewRef.current.x;
               const y1 = rect[1] * viewRef.current.zoom - viewRef.current.y;
@@ -145,32 +152,8 @@ const SchemaCanvas = forwardRef(({
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
 
-
-
-        Object.values(schemaElements.elements).forEach(elem => {// each element on schematic
-            const libElement = libElements[elem.typeId];
-
-
-            let drawColor = DrawColor.NONE;
-
-            if (hovered && hovered.type === ObjectType.ELEMENT && elem.id === hovered.elementId)
-                drawColor = DrawColor.HOVERED;
-            if (selected && selected.type === ObjectType.ELEMENT && elem.id === selected.elementId)
-                drawColor = DrawColor.SELECTED;
-
-
-            const toDraw = {
-                ...libElement,
-                pos: GlobalToScreen(elem.pos),
-                zoom: view.zoom,
-                rotate: elem.rotate,
-                typeIndex: elem.typeIndex,
-                drawColor: drawColor
-            };
-            drawElement(toDraw, ctx);
-            drawPins(toDraw, ctx);
-            drawName(toDraw, ctx);
-        });
+        // Рисуем сетку А*, если мы в режиме роутинга
+        if (dragMode.current === DragMode.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
 
         if (hovered && hovered.type === ObjectType.PIN) {
             let pinCoords = pinToCoords(hovered);
@@ -184,8 +167,56 @@ const SchemaCanvas = forwardRef(({
         }
 
 
+        Object.values(schemaElements.elements).forEach(elem => {// each element on schematic
+            const libElement = libElements[elem.typeId];
+            if (libElement) {
 
-    }, [libElements, schemaElements, hovered, selected, view]);
+
+                let drawColor = DrawColor.NONE;
+
+                if (hovered && hovered.type === ObjectType.ELEMENT && elem.id === hovered.elementId)
+                    drawColor = DrawColor.HOVERED;
+                if (selected && selected.type === ObjectType.ELEMENT && elem.id === selected.elementId)
+                    drawColor = DrawColor.SELECTED;
+
+
+                const toDraw = {
+                    ...libElement,
+                    pos: GlobalToScreen(elem.pos),
+                    zoom: view.zoom,
+                    rotate: elem.rotate,
+                    typeIndex: elem.typeIndex,
+                    drawColor: drawColor
+                };
+                drawElement(toDraw, ctx);
+                drawPins(toDraw, ctx);
+                drawName(toDraw, ctx);
+            }
+        });
+
+
+
+        if (activeRoute) {
+            ctx.beginPath();
+            try {
+                activeRoute.forEach((pt, i) => {
+                    const screenPt = GlobalToScreen(pt);
+                    const adjusted = adjustPoint(screenPt);
+
+                    if (i === 0) {
+                        ctx.moveTo(...adjusted);
+                    } else {
+                        ctx.lineTo(...adjusted);
+                    }
+
+
+                })
+            } finally {
+                ctx.stroke();
+            }
+        }
+
+    }, [libElements, schemaElements, hovered, selected, view, activeRoute]);
     const drawRef = useRef(drawAll);
     useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
 
@@ -225,18 +256,28 @@ const SchemaCanvas = forwardRef(({
             switch (event.code) {
                 case 'KeyR': rotateElement(false); break;
                 case 'KeyT': rotateElement(true); break;
+                case 'Delete': {
+                    if (selectedRef.current && selectedRef.current.type === ObjectType.ELEMENT) {
+                        onElemDeleted(selectedRef.current.elementId);
+                        // selectedChanged(null);
+                    }
+                } break;
+
                 case 'Digit1':
                     //       console.log(prettify(aStarRef.current, 1)); break;
                     console.log(prettify_v2(aStarRef.current, 0)); break;
-                case 'Escape': if (dragMode.current === DragMode.ROUTING) {
-                    dragMode.current = null;
-                }; break;
+                case 'Escape':
+                    if (dragMode.current === DragMode.ROUTING) {
+                        dragMode.current = null;
+                        setActiveRoute(null);
+                        aStarRef.current = null;
+                    }; break;
 
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged, initAStar]);
+    }, [onElemChanged, onElemDeleted]);
 
 
     // WHEEL -------------------------------------------------------------------
@@ -295,7 +336,7 @@ const SchemaCanvas = forwardRef(({
             typeIndex: newTypeIndex
         };
 
-        onElemChanged(newElement);
+        onElemChanged(newElement, true);
     };
     // DRAG OVER --------------------------------------------------------
     const handleDragOver = (e) => {
@@ -394,7 +435,7 @@ const SchemaCanvas = forwardRef(({
 
                     const newElem = { ...schemaElements.elements[selectedRef.current.elementId] };
                     newElem.pos = addPoint(newElem.pos, [dx / viewRef.current.zoom, dy / viewRef.current.zoom]);
-                    onElemChanged(newElem);
+                    onElemChanged(newElem, false);
                 } break;
                 case DragMode.ROUTING: {
                     routeAStar(pt);

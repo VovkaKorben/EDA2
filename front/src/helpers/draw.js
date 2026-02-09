@@ -1,5 +1,50 @@
 import { dpr } from './utils.js';
 import { addPoint, multiplyPoint } from './geo.js';
+export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
+
+export const drawGridDebug = (ctx, grid, GlobalToScreen) => {
+    ctx.save();
+
+
+    // 2. Рисуем "веса" (препятствия) как точки на пересечениях
+   ctx.fillStyle = 'rgba(255, 0, 0, 0.15)'; 
+    for (let y = 0; y < grid.h; y++) {
+        for (let x = 0; x < grid.w; x++) {
+            if (grid.weights[y * grid.w + x] > 0) {
+                const [sx, sy] = GlobalToScreen([grid.gridX[x], grid.gridY[y]]);
+                // Квадратик 5x5, центрированный ровно на перекрестии линий
+                ctx.fillRect(sx - 4, sy - 4, 9, 9);
+            }
+        }
+    }
+
+    // 1. Рисуем линии сетки
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)'; // Очень бледные линии
+    ctx.lineWidth = 0.5;
+
+    // Вертикальные линии
+    grid.gridX.forEach(x => {
+        const [screenX] = GlobalToScreen([x, 0]);
+        ctx.beginPath();
+        ctx.moveTo(screenX, 0);
+        ctx.lineTo(screenX, ctx.canvas.height);
+        ctx.stroke();
+    });
+
+    // Горизонтальные линии
+    grid.gridY.forEach(y => {
+        const [, screenY] = GlobalToScreen([0, y]);
+        ctx.beginPath();
+        ctx.moveTo(0, screenY);
+        ctx.lineTo(ctx.canvas.width, screenY);
+        ctx.stroke();
+    });
+
+    // 2. Рисуем "веса" (препятствия)
+    // ctx.fillStyle = 'rgba(255, 0, 0, 0.15)'; // Полупрозрачные красные квадраты
+
+ctx.restore();
+};
 
 export const drawElement = (elem, ctx) => {
     ctx.save();

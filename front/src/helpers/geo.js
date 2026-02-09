@@ -143,6 +143,9 @@ export const geq = (a, b, e = Number.EPSILON) => {
 export const addPoint = (point, delta) => {
     return [point[0] + delta[0], point[1] + delta[1]]
 }
+export const subPoint = (point, delta) => {
+    return [point[0] - delta[0], point[1] - delta[1]]
+}
 export const multiplyPoint = (point, m) => {
     return [point[0] * m, point[1] * m]
 }
