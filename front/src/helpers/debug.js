@@ -63,3 +63,58 @@ export function prettify(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
 
     return output;
 }
+
+/**
+ * Улучшенная версия prettify с поддержкой типизированных массивов (Float32Array и др.)
+ */
+export function prettify_v2(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
+    // Проверка на null или не-объект
+    if (typeof obj !== 'object' || obj === null) {
+        return JSON.stringify(obj);
+    }
+
+    // Если достигли лимита глубины — выводим всё в одну строку
+    if (currentDepth >= maxDepth) {
+        return JSON.stringify(obj);
+    }
+
+    const indent = ' '.repeat(indentSpaces);
+    let output = '';
+
+    // Проверяем: обычный ли это массив ИЛИ типизированный (Float32Array и т.д.)
+    const isArrayLike = Array.isArray(obj) || ArrayBuffer.isView(obj);
+
+    if (isArrayLike) {
+        output += '[\n';
+        // Для типизированных массивов цикл for работает так же корректно
+        for (let i = 0; i < obj.length; i++) {
+            const value = prettify_v2(obj[i], maxDepth, currentDepth + 1, indentSpaces);
+            output += indent.repeat(currentDepth + 1) + value;
+
+            if (i < obj.length - 1) {
+                output += ',\n';
+            } else {
+                output += '\n';
+            }
+        }
+        output += indent.repeat(currentDepth) + ']';
+    } else {
+        const keys = Object.keys(obj);
+        output += '{\n';
+
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const value = prettify_v2(obj[key], maxDepth, currentDepth + 1, indentSpaces);
+            output += indent.repeat(currentDepth + 1) + JSON.stringify(key) + ': ' + value;
+
+            if (i < keys.length - 1) {
+                output += ',\n';
+            } else {
+                output += '\n';
+            }
+        }
+        output += indent.repeat(currentDepth) + '}';
+    }
+
+    return output;
+}

@@ -2,8 +2,9 @@ import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperat
 
 import { dpr } from '../helpers/utils.js';
 import { drawElement, drawPins, drawName } from '../helpers/draw.js';
-import { clamp, addPoint, pointsDistance, transformRect, ptInRect } from '../helpers/geo.js';
-import { prettify } from '../helpers/debug.js';
+import { clamp, addPoint, pointsDistance, transformRect, ptInRect, multiplyRect } from '../helpers/geo.js';
+import { prettify, prettify_v2 } from '../helpers/debug.js';
+import { prepareAStarGrid, coordsToFlat, doAStar } from '../helpers/astar.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
 const DEFAULT_VIEW = { zoomIndex: 0, zoom: 1, x: 0, y: 0 };
@@ -36,18 +37,19 @@ const SchemaCanvas = forwardRef(({
 
     const canvasRef = useRef(null);
     const dragMode = useRef(null);
+    //useEffect(() => {        console.log(`dragMode: ${dragMode.current}`);    }, [dragMode.current]);
+
+
     const schemaRef = useRef(schemaElements);
     useEffect(() => { schemaRef.current = schemaElements; }, [schemaElements]);
-
     const selectedRef = useRef(selected);
     useEffect(() => { selectedRef.current = selected; }, [selected]);
-    // const [selectedPin, setSelectedPin] = useState(null);
+    const [view, setView] = useState(() => { const saved = localStorage.getItem('view'); return saved ? JSON.parse(saved) : DEFAULT_VIEW; });
+    useEffect(() => { localStorage.setItem('view', JSON.stringify(view)); }, [view]);
+    const viewRef = useRef(view);
+    useEffect(() => { viewRef.current = view; }, [view]);
+    useImperativeHandle(ref, () => ({ resetView: () => { setView(DEFAULT_VIEW); } }));
 
-    // const [hovered, setHovered] = useState(null);    const [selected, setSelected] = useState(null);
-
-    // const selectedElements = useRef(new Set());
-    // const selectedWires = useRef(new Set());
-    // const [activeRoute, setActiveRoute] = useState(null);
     const lastPos = useRef(false);
 
     // debug
@@ -55,43 +57,78 @@ const SchemaCanvas = forwardRef(({
     const [globalPos, setGlobalPos] = useState([0, 0]);
 
 
-    const [view, setView] = useState(() => {
-        //    return DEFAULT_VIEW;
-        const saved = localStorage.getItem('view'); return saved ? JSON.parse(saved) : DEFAULT_VIEW;
-    });
 
-    const ScreenToGlobal = (mx, my) => {
-        const canvasRect = canvasRef.current.getBoundingClientRect();
-        let x = (mx - canvasRect.left + view.x) / view.zoom;
-        let y = (my - canvasRect.top + view.y) / view.zoom;
-        return [x, y];
+
+
+    const [activeRoute, setActiveRoute] = useState(null);
+    const aStarRef = useRef(null);
+    const initAStar = useCallback((startCoords) => {
+        // calculate visible area
+        const { width, height } = canvasRef.current.getBoundingClientRect();
+        // 1. Берем смещение в пикселях и переводим в глобальные единицы
+        const x1 = view.x / view.zoom;
+        const y1 = view.y / view.zoom;
+
+        // 2. Добавляем размер экрана, тоже деленный на зум
+        const x2 = x1 + (width / view.zoom);
+        const y2 = y1 + (height / view.zoom);
+
+        const globalBounds = [x1, y1, x2, y2];
+        aStarRef.current = prepareAStarGrid(globalBounds, libElements, schemaElements);
+        if (aStarRef.current) {
+            const startIdx = coordsToFlat(aStarRef.current, startCoords);
+            aStarRef.current = {
+                ...aStarRef.current,
+                startIdx: startIdx,
+                goalIdx: null
+            }
+        }
+        // console.log(aStarRef.current);
+        return !!aStarRef.current;
+    }, [view, libElements, schemaElements]);
+    const routeAStar = (goalCoords) => {
+        if (!aStarRef.current) return;
+        const goalIdx = coordsToFlat(aStarRef.current, goalCoords);
+        if (aStarRef.current.goalIdx === goalIdx) return;
+        aStarRef.current.goalIdx = goalIdx;
+        const route = doAStar(aStarRef.current);
+        console.log(prettify(route, 0));
+     
     }
 
-    /*const GlobalToScreen = useCallback((pt) => {
-        const x = pt[0] * view.zoom - view.x;
-        const y = pt[1] * view.zoom - view.y;
+
+    const ScreenToGlobal = useCallback((mx, my) => {
+        const canvasRect = canvasRef.current.getBoundingClientRect();
+        let x = (mx - canvasRect.left + viewRef.current.x) / viewRef.current.zoom;
+        let y = (my - canvasRect.top + viewRef.current.y) / viewRef.current.zoom;
         return [x, y];
- 
-}, [view]);
-*/
+    }, []);
+
+    /*const GlobalToScreen = useCallback((pt) => {
+        const x = pt[0] * viewRef.current.zoom - viewRef.current.x;
+        const y = pt[1] * viewRef.current.zoom - viewRef.current.y;
+        return [x, y];
+     
+    }, [view]);
+    */
 
 
-    useImperativeHandle(ref, () => ({ resetView: () => { setView(DEFAULT_VIEW); } }));
 
 
+    // DRAW ---------------------------------------------------------
     const drawAll = useCallback(() => {
         const GlobalToScreen = (pt) => {
-            const x = pt[0] * view.zoom - view.x;
-            const y = pt[1] * view.zoom - view.y;
+            const x = pt[0] * viewRef.current.zoom - viewRef.current.x;
+            const y = pt[1] * viewRef.current.zoom - viewRef.current.y;
             return [x, y];
         };
         /*  const RectGlobalToScreen = (rect) => {
-              const x1 = rect[0] * view.zoom - view.x;
-              const y1 = rect[1] * view.zoom - view.y;
-              const x2 = rect[2] * view.zoom - view.x;
-              const y2 = rect[3] * view.zoom - view.y;
+              const x1 = rect[0] * viewRef.current.zoom - viewRef.current.x;
+              const y1 = rect[1] * viewRef.current.zoom - viewRef.current.y;
+              const x2 = rect[2] * viewRef.current.zoom - viewRef.current.x;
+              const y2 = rect[3] * viewRef.current.zoom - viewRef.current.y;
               return [x1, y1, x2 - x1, y2 - y1];
-  
+     
           };*/
         const pinToCoords = (pin) => {
             const elem = schemaElements.elements[pin.elementId];
@@ -109,8 +146,8 @@ const SchemaCanvas = forwardRef(({
 
 
 
-        // each element on schematic
-        Object.values(schemaElements.elements).forEach(elem => {
+
+        Object.values(schemaElements.elements).forEach(elem => {// each element on schematic
             const libElement = libElements[elem.typeId];
 
 
@@ -147,12 +184,8 @@ const SchemaCanvas = forwardRef(({
         }
 
 
-        //
 
-
-
-        // Тут позже добавим рисование сетки и проводов
-    }, [view, libElements, schemaElements, hovered, selected]); // Пересоздаем функцию только если изменился зум, позиция или массив элементов
+    }, [libElements, schemaElements, hovered, selected, view]);
     const drawRef = useRef(drawAll);
     useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
 
@@ -173,8 +206,8 @@ const SchemaCanvas = forwardRef(({
         return () => resizeObserver.disconnect();
     }, []);
 
-    // keyboard processing
-    useEffect(() => {
+    // KEYBOARD ------------------------------------------------
+    useEffect(() => {  // keyboard processing
 
         const rotateElement = (reset) => {
             const selected = selectedRef.current;
@@ -192,16 +225,21 @@ const SchemaCanvas = forwardRef(({
             switch (event.code) {
                 case 'KeyR': rotateElement(false); break;
                 case 'KeyT': rotateElement(true); break;
-            }
+                case 'Digit1':
+                    //       console.log(prettify(aStarRef.current, 1)); break;
+                    console.log(prettify_v2(aStarRef.current, 0)); break;
+                case 'Escape': if (dragMode.current === DragMode.ROUTING) {
+                    dragMode.current = null;
+                }; break;
 
+            }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged]);
-    // POS + ZOOM
-    useEffect(() => {
-        localStorage.setItem('view', JSON.stringify(view));
-    }, [view]);
+    }, [onElemChanged, initAStar]);
+
+
+    // WHEEL -------------------------------------------------------------------
     const handleWheel = (e) => {
         const canvasRect = e.currentTarget.getBoundingClientRect()
         const mousePos = {
@@ -224,19 +262,7 @@ const SchemaCanvas = forwardRef(({
         });
     };
 
-    /*
-     const handleDrop = (e) => {
-            e.preventDefault();
-            const data = JSON.parse(e.dataTransfer.getData('compData'));
-     
-            // Считаем координаты относительно холста
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-     
-            // Передаём наверх в App информацию: ЧТО и КУДА бросили
-            onElementDropped(data, x, y);
-        };*/
+    // DROP ------------------------------------------------
     const handleDrop = (e) => {
         e.preventDefault();
         // convert drag to object
@@ -246,8 +272,8 @@ const SchemaCanvas = forwardRef(({
         const canvasRect = canvasRef.current.getBoundingClientRect();
 
         const pos = [
-            (e.clientX - canvasRect.left + view.x) / view.zoom,
-            (e.clientY - canvasRect.top + view.y) / view.zoom
+            (e.clientX - canvasRect.left + viewRef.current.x) / viewRef.current.zoom,
+            (e.clientY - canvasRect.top + viewRef.current.y) / viewRef.current.zoom
         ]
 
         // get first available element index
@@ -271,38 +297,39 @@ const SchemaCanvas = forwardRef(({
 
         onElemChanged(newElement);
     };
+    // DRAG OVER --------------------------------------------------------
     const handleDragOver = (e) => {
-        e.preventDefault(); // РАЗРЕШАЕМ DROP
+        e.preventDefault();
     };
 
 
 
-    const findPinAt = (checkPoint) => {
+    const findPinAt = useCallback((checkPoint) => {
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             for (const [pinName, pinValue] of Object.entries(libElement.pins[elem.rotate])) {
                 let pinCoords = addPoint(pinValue, elem.pos);
                 const pointsDist = pointsDistance(pinCoords, checkPoint);
                 if (pointsDist <= 3) {
-                    return { elementId: elem.id, pinIdx: pinName };
+                    return { elementId: elem.id, pinIdx: pinName, pinCoords: pinCoords };
                 }
             }
         }
         return null;
-    }
-    const findElemAt = (checkPoint) => {
+    }, [libElements, schemaElements]);
+    const findElemAt = useCallback((checkPoint) => {
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
-            // console.log(`${libElement.abbr}${elem.typeIndex}: ${prettify(elemRect, 0)}`);
             if (ptInRect(elemRect, checkPoint)) {
                 return { elementId: elem.id };
             }
 
         }
         return null;
-    }
-    const getObjectUnderCursor = (pt) => {
+    }, [libElements, schemaElements]);
+
+    const getObjectUnderCursor = useCallback((pt) => {
         const pinCheck = findPinAt(pt);
         if (pinCheck !== null)
             return { type: ObjectType.PIN, ...pinCheck };
@@ -312,9 +339,9 @@ const SchemaCanvas = forwardRef(({
         //{ type: 'WIRE', wireId: 505 }
         return null;
 
-    }
-
-    const handleMouseDown = (e) => {
+    }, [findPinAt, findElemAt]);
+    // MOUSE DOWN ------------------------------------------------
+    const handleMouseDown = useCallback((e) => {
         if (e.button !== DRAG_BUTTON) return;
         const pt = ScreenToGlobal(e.clientX, e.clientY);
         const obj = getObjectUnderCursor(pt);
@@ -324,16 +351,21 @@ const SchemaCanvas = forwardRef(({
             if (obj.type === ObjectType.ELEMENT) {
                 dragMode.current = DragMode.ELEMENT;
             } else if (obj.type === ObjectType.PIN) {
-                dragMode.current = DragMode.ROUTING;
+
+                const resultInitAStar = initAStar(obj.pinCoords);
+                console.log(`resultInitAStar: ${resultInitAStar}`);
+                if (resultInitAStar)
+                    dragMode.current = DragMode.ROUTING;
+                // console.log(`dragMode: ${dragMode.current}`);
             }
             //  else wire....
 
         } else  // none from above - simple canvas drag
             dragMode.current = DragMode.SCROLL;
         lastPos.current = { x: e.clientX, y: e.clientY };
-    };
+    }, [ScreenToGlobal, getObjectUnderCursor, selectedChanged, initAStar]);
 
-
+    // MOUSE MOVE ------------------------------------------------
     const handleMouseMove = (e) => {
         const pt = ScreenToGlobal(e.clientX, e.clientY);
 
@@ -347,24 +379,26 @@ const SchemaCanvas = forwardRef(({
         setMousePos(mp);
         setGlobalPos(pt);
         // DEBUG END -------------------------
-
+        // console.log(`dragMode: ${dragMode.current}`);
         if (dragMode.current) {
             const dx = e.clientX - lastPos.current.x;
             const dy = e.clientY - lastPos.current.y;
             switch (dragMode.current) {
-                case DragMode.SCROLL: {
-                    setView(prev => (
-                        { ...prev, x: prev.x - dx, y: prev.y - dy }
-                    ));
-                } break;
+                case DragMode.SCROLL:
+
+                    viewRef.current.x -= dx;
+                    viewRef.current.y -= dy;
+                    setView({ ...viewRef.current });
+                    break;
                 case DragMode.ELEMENT: {
 
-                    // schemaElements = schemaElements
-                    //
-                    // alert(1);
-                    const newElem = { ...schemaElements.elements[selected.elementId] };
-                    newElem.pos = addPoint(newElem.pos, [dx / view.zoom, dy / view.zoom]);
+                    const newElem = { ...schemaElements.elements[selectedRef.current.elementId] };
+                    newElem.pos = addPoint(newElem.pos, [dx / viewRef.current.zoom, dy / viewRef.current.zoom]);
                     onElemChanged(newElem);
+                } break;
+                case DragMode.ROUTING: {
+                    routeAStar(pt);
+
                 } break;
 
             }
@@ -372,9 +406,11 @@ const SchemaCanvas = forwardRef(({
         }
     };
     const handleMouseUp = (e) => {
-        //console.log(`zoom: ${ zoomLevels[view.zoomIndex]} | ${ prettify(view, 0) } local : ${ prettify(mousePos, 0) } | global: ${ prettify(globalPos, 0) }`);
+
         if (e.button !== DRAG_BUTTON) return;
-        dragMode.current = null;
+        if (dragMode.current !== DragMode.ROUTING) {
+            dragMode.current = null;
+        }
     };
 
 

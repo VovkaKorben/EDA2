@@ -149,7 +149,9 @@ export const multiplyPoint = (point, m) => {
 export const transformRect = (rect, delta) => {
     return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]
 }
-
+export const multiplyRect = (rect, m) => {
+    return [rect[0] * m, rect[1] * m, rect[2] * m, rect[3] * m]
+}
 export const expandRect = (rect, x, y) => {
     return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
 }

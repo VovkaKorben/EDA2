@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import Controls from './component/Controls';
 import SchemaCanvas from './component/SchemaCanvas';
 import ElementsList from './component/ElementsList';
@@ -139,17 +139,12 @@ function App() {
         };
     */
 
-    const handleElemChanged = (elem) => {
-        setSchemaElements(prev => ({
-            ...prev,
-            elements: {
-                ...prev.elements,
-                [elem.id]: elem
-            }
-
-
-        }));
-    };
+    const onElemChanged = useCallback((elem) => {
+        setSchemaElements(prev => {
+            const newElements = { ...prev.elements, [elem.id]: elem };
+            return { ...prev, elements: newElements };
+        });
+    }, []);
 
 
     return (
@@ -185,7 +180,7 @@ function App() {
 
                     hoveredChanged={(obj) => setHovered(obj)}
                     selectedChanged={(obj) => setSelected(obj)}
-                    onElemChanged={handleElemChanged}
+                    onElemChanged={onElemChanged}
                 /></div>
 
 
