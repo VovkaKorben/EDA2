@@ -1,26 +1,14 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
-import { dpr, ObjectType } from '../helpers/utils.js';
-import { drawElement, drawPins, drawName, adjustPoint, drawGridDebug } from '../helpers/draw.js';
-import { clamp, addPoint, pointsDistance, transformRect, ptInRect, multiplyRect } from '../helpers/geo.js';
+import { ObjectType, DragMode, DrawColor } from '../helpers/utils.js';
+import { dpr, drawElement, drawPins, drawName, adjustPoint, drawGridDebug } from '../helpers/draw.js';
+import { clamp, addPoint, pointsDistance, transformRect, ptInRect } from '../helpers/geo.js';
 import { prettify, prettify_v2 } from '../helpers/debug.js';
 import { prepareAStarGrid, coordsToFlat, doAStar, routeToCoords } from '../helpers/astar.js';
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const DRAG_BUTTON = 0;
 const DEFAULT_VIEW = { zoomIndex: 0, zoom: 1, x: 0, y: 0 };
 
-const DragMode = Object.freeze({
-
-    SCROLL: 'SCROLL',
-    ROUTING: 'ROUTING',
-    ELEMENT: 'ELEMENT'
-});
-
-const DrawColor = Object.freeze({
-    NONE: 'black',
-    HOVERED: '#5577FF',
-    SELECTED: 'blue'
-});
 const SchemaCanvas = forwardRef(({
     libElements, schemaElements,
 
@@ -155,6 +143,7 @@ const SchemaCanvas = forwardRef(({
         // Рисуем сетку А*, если мы в режиме роутинга
         if (dragMode.current === DragMode.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
 
+        // if 
         if (hovered && hovered.type === ObjectType.PIN) {
             let pinCoords = pinToCoords(hovered);
             pinCoords = GlobalToScreen(pinCoords);
@@ -257,9 +246,9 @@ const SchemaCanvas = forwardRef(({
                 case 'KeyR': rotateElement(false); break;
                 case 'KeyT': rotateElement(true); break;
                 case 'Delete': {
-                    if (selectedRef.current && selectedRef.current.type === ObjectType.ELEMENT) {
+                    if (dragMode.current === null && selectedRef.current && selectedRef.current.type === ObjectType.ELEMENT) {
+                        selectedChanged(null);
                         onElemDeleted(selectedRef.current.elementId);
-                        // selectedChanged(null);
                     }
                 } break;
 
@@ -277,7 +266,7 @@ const SchemaCanvas = forwardRef(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged, onElemDeleted]);
+    }, [onElemChanged, onElemDeleted, selectedChanged]);
 
 
     // WHEEL -------------------------------------------------------------------

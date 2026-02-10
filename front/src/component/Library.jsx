@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
 // import { drawElement } from '../helpers/geo.js';
-import { drawElement } from '../helpers/draw.js';
-import { dpr } from '../helpers/utils.js';
+import { dpr, drawElement } from '../helpers/draw.js';
+// import {  } from '../helpers/utils.js';
 const elemSize = 50;
 const elemMargin = 5; // in percent, i.e. for value 5 component take 100 - (2*5) = 90%
 const elemSizeScaled = Math.round(elemSize * dpr);
@@ -27,8 +27,8 @@ const LibraryItem = ({ elem }) => {
 
         const toDraw = {
             ...elem,
-            pos: [ elemSize / 2, elemSize / 2],
-            
+            pos: [elemSize / 2, elemSize / 2],
+
             zoom: 2,
             rotate: 0,
         };

@@ -72,14 +72,9 @@ function App() {
         setSchemaElements(prev => {
             const newElements = { ...prev.elements };
             delete newElements[elementId];
-            setSelected(null);
             return {
                 ...prev,
-                elements:
-                {
-                    ...prev.elements,
-                    elements: newElements
-                }
+                elements: newElements
             };
         });
     }, []);

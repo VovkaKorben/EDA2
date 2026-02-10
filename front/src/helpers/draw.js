@@ -1,5 +1,8 @@
-import { dpr } from './utils.js';
+// import { dpr } from './utils.js';
 import { addPoint, multiplyPoint } from './geo.js';
+
+
+export const dpr = window.devicePixelRatio || 1;
 export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
 
 export const drawGridDebug = (ctx, grid, GlobalToScreen) => {
@@ -7,7 +10,7 @@ export const drawGridDebug = (ctx, grid, GlobalToScreen) => {
 
 
     // 2. Рисуем "веса" (препятствия) как точки на пересечениях
-   ctx.fillStyle = 'rgba(255, 0, 0, 0.15)'; 
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
     for (let y = 0; y < grid.h; y++) {
         for (let x = 0; x < grid.w; x++) {
             if (grid.weights[y * grid.w + x] > 0) {
@@ -43,7 +46,7 @@ export const drawGridDebug = (ctx, grid, GlobalToScreen) => {
     // 2. Рисуем "веса" (препятствия)
     // ctx.fillStyle = 'rgba(255, 0, 0, 0.15)'; // Полупрозрачные красные квадраты
 
-ctx.restore();
+    ctx.restore();
 };
 
 export const drawElement = (elem, ctx) => {
@@ -100,9 +103,7 @@ export const drawElement = (elem, ctx) => {
                         } else {
                             ctx.lineTo(x, y);
                         }
-
                     }
-
                     // check if params count is odd, get last
                     let style = 0;
                     if (paramsLen % 2) {
@@ -114,6 +115,19 @@ export const drawElement = (elem, ctx) => {
                         case 2: ctx.closePath(); ctx.fill(); break;  // 2 filled polygon
                     }
 
+                } break;
+                case 'A': { // Arc (centerX,centerY,radius, start degree,end degree,mode)
+                    let [x, y, r, a1, a2, style] = prim.params;
+                    x = Math.round(x * elem.zoom) + 0.5;
+                    y = Math.round(y * elem.zoom) + 0.5;
+                    r = Math.round(r * elem.zoom);
+
+                    ctx.arc(x, y, r, a1, a2);
+                    switch (style) {
+                        case 0: ctx.stroke(); break; // 0 arc
+                        case 1: ctx.closePath(); ctx.stroke(); break;// 1 closed arc
+                        case 2: ctx.closePath(); ctx.fill(); break;  // 2 filled arc
+                    }
                 } break;
             }
         }

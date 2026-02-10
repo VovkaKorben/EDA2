@@ -12,35 +12,55 @@ export const rotatePrimitive = (prim, rotateIndex) => {
     const p = prim.params;
     let params;
     switch (prim.code) {
-        case 'R':
+        case 'R': // Rectangle
             params = [
                 ...rotatePoint(p.slice(0, 2), rotateIndex),
                 ...rotatePoint(p.slice(2, 4), rotateIndex)
             ];
             break;
-        case 'L':
+        case 'L': // Line
             params = [
                 ...rotatePoint(p.slice(0, 2), rotateIndex),
                 ...rotatePoint(p.slice(2, 4), rotateIndex)
             ];
             break;
-        case 'C':
+        case 'C': // Circle
+
             params = [
                 ...rotatePoint(p.slice(0, 2), rotateIndex),
                 ...p.slice(2, 3)
             ];
             break;
-        case 'P': {
+        case 'P': // Polyline / Polygon
+            {
+                params = [];
+                const pointsCount = (p.length / 2) | 0;
+                for (let ptIndex = 0; ptIndex < pointsCount; ptIndex++) {
+                    params.push(...rotatePoint(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
+                }
+                // append poly mode
+                params.push(...p.slice(pointsCount * 2, pointsCount * 2 + 1));
 
-            params = [];
-            const pointsCount = (p.length / 2) | 0;
-            for (let ptIndex = 0; ptIndex < pointsCount; ptIndex++) {
-                params.push(...rotatePoint(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
-            }
-            // append poly mode
-            params.push(...p.slice(pointsCount * 2, pointsCount * 2 + 1));
+            } break;
 
-        } break;
+        case 'A':// Arc
+            {
+                const center = rotatePoint(p.slice(0, 2), rotateIndex)
+                const [degStart] = p.slice(3, 4);
+                const radStart = ((degStart + rotateIndex * 90) % 360) / 180 * Math.PI;
+                let [degEnd] = p.slice(4, 5);
+                const radEnd = ((degEnd + rotateIndex * 90) % 360) / 180 * Math.PI;
+
+                params = [
+                    ...center,
+                    ...p.slice(2, 3),
+                    radStart, radEnd,
+                    ...p.slice(5, 6)
+                ];
+
+                // console.log('arc');
+
+            }; break;
 
 
         default: throw new Error(`Invalid primitive code: ${prim.code}`);
@@ -75,6 +95,7 @@ export const getPrimitiveBounds = (prim) => {
                 break;
             }
         case 'C': // circle
+        case 'A': // arc - for simplification
             {
                 const [x, y, r] = prim.params;
                 primBounds = [x - r, y - r, x + r, y + r];
@@ -102,20 +123,8 @@ export const expandBounds = (current, add) => {
 
 }
 
-export const getWH = (arr) => {
-    // ... логика ...
-    return [arr[2] - arr[0], arr[3] - arr[1]]; // Возвращаем один массив
-};
-
-export const clamp = (v, min, max) => {
-    if (v < min)
-        return min;
-    if (v > max)
-        return max;
-    return v;
-
-
-}
+export const getWH = (arr) => { return [arr[2] - arr[0], arr[3] - arr[1]]; };
+export const clamp = (v, min, max) => { if (v < min) return min; if (v > max) return max; return v; }
 
 export const pointsDistance = (pt1, pt2) => {
     return Math.sqrt(
@@ -130,15 +139,9 @@ export const ptInRect = (rect, point) => {
         point[1] <= rect[3];
 
 }
-export const floatEqual = (f1, f2, e = Number.EPSILON) => {
-    return Math.abs(f1 - f2) < e;
-}
-export const leq = (a, b, e = Number.EPSILON) => {
-    return (a < b) || (Math.abs(a - b) < e);
-}
-export const geq = (a, b, e = Number.EPSILON) => {
-    return (a > b) || (Math.abs(a - b) < e);
-}
+export const floatEqual = (f1, f2, e = Number.EPSILON) => { return Math.abs(f1 - f2) < e; }
+export const leq = (a, b, e = Number.EPSILON) => { return (a < b) || (Math.abs(a - b) < e); }
+export const geq = (a, b, e = Number.EPSILON) => { return (a > b) || (Math.abs(a - b) < e); }
 
 export const addPoint = (point, delta) => {
     return [point[0] + delta[0], point[1] + delta[1]]
