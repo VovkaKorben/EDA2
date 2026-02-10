@@ -2,8 +2,11 @@ import React from 'react';
 
 
 const buttonsCodes = [
-    { id: 1, caption: 'load', ico: '' },
-    { id: 2, caption: 'clear', ico: '' },
+
+    { id: 2, caption: 'Clear', ico: '' },
+    { id: 1, caption: 'Load', ico: '' },
+    { id: 5, caption: 'Save', ico: '' },
+
     { id: 3, caption: 'reset view', ico: '' },
     { id: 4, caption: 'log', ico: '' }
 ]

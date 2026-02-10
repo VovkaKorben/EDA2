@@ -20,8 +20,8 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered }) => {
 
             }
 
-            {prettify(selected)}<br />
-            {prettify(hovered)}<br />
+            selected: {prettify(selected)}<br />
+            hovered: {prettify(hovered)}<br />
         </React.Fragment>
 
 

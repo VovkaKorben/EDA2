@@ -18,8 +18,8 @@ const defaultSchemaElements = {
 
 function App() {
 
-    const [hovered, setHovered] = useState(null);
-    const [selected, setSelected] = useState(null);
+    const [hovered, setHovered] = useState({ type: ObjectType.NONE });
+    const [selected, setSelected] = useState({ type: ObjectType.NONE });
 
     const refSchemaCanvas = useRef(null);
 
@@ -47,6 +47,10 @@ function App() {
         switch (actionId) {
             // case 1: LoadElems(); break;
             case 2: ClearSchema(); break;
+            case 1://load
+                break;
+            case 5://Save
+                break;
             case 3: refSchemaCanvas.current?.resetView(); break;
             case 4:
 
