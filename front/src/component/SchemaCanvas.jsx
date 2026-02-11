@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
-import { ObjectType, DragMode, DrawColor } from '../helpers/utils.js';
+import { ObjectType, DragModeType, DrawColor } from '../helpers/utils.js';
 import { dpr, drawElement, drawPins, drawName, adjustPoint, drawGridDebug } from '../helpers/draw.js';
 import { clamp, addPoint, pointsDistance, transformRect, ptInRect } from '../helpers/geo.js';
 import { prettify, prettify_v2 } from '../helpers/debug.js';
@@ -141,7 +141,7 @@ const SchemaCanvas = forwardRef(({
 
 
         // Рисуем сетку А*, если мы в режиме роутинга
-        if (dragMode.current === DragMode.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
+        if (dragMode.current === DragModeType.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
 
         // if 
         if (hovered.type === ObjectType.PIN) {
@@ -213,6 +213,7 @@ const SchemaCanvas = forwardRef(({
         drawRef.current();
     }, [drawAll]);
     useEffect(() => {// update canvas size
+        dragMode.current = DragModeType.NONE;
         const canvas = canvasRef.current;
         if (!canvas) return;
         const resizeObserver = new ResizeObserver(() => {
@@ -246,7 +247,7 @@ const SchemaCanvas = forwardRef(({
                 case 'KeyR': rotateElement(false); break;
                 case 'KeyT': rotateElement(true); break;
                 case 'Delete': {
-                    if (dragMode.current.type === DragMode.NONE && selectedRef.current.type === ObjectType.ELEMENT) {
+                    if (dragMode.current === DragModeType.NONE && selectedRef.current.type === ObjectType.ELEMENT) {
                         selectedChanged({ type: ObjectType.NONE });
                         onElemDeleted(selectedRef.current.elementId);
                     }
@@ -256,8 +257,8 @@ const SchemaCanvas = forwardRef(({
                     //       console.log(prettify(aStarRef.current, 1)); break;
                     console.log(prettify_v2(aStarRef.current, 0)); break;
                 case 'Escape':
-                    if (dragMode.current === DragMode.ROUTING) {
-                        dragMode.current = null;
+                    if (dragMode.current === DragModeType.ROUTING) {
+                        dragMode.current = DragModeType.NONE;
                         setActiveRoute(null);
                         aStarRef.current = null;
                     }; break;
@@ -380,71 +381,76 @@ const SchemaCanvas = forwardRef(({
         const obj = getObjectUnderCursor(pt);
         selectedChanged(obj);
 
-        if (obj && obj.type !== ObjectType.NONE) {
-            if (obj.type === ObjectType.ELEMENT) {
-                dragMode.current = DragMode.ELEMENT;
-                const elem = schemaRef.current.elements[obj.elementId];
-                // Запоминаем стартовую позицию мыши и элемента
+        switch (obj.type) {
+            case ObjectType.ELEMENT:
+                {
+                    dragMode.current = DragModeType.ELEMENT;
+                    const elem = schemaRef.current.elements[obj.elementId];
+                    // Запоминаем стартовую позицию мыши и элемента
+                    lastPos.current = {
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        elemStartX: elem.pos[0],
+                        elemStartY: elem.pos[1]
+                    }; break;
+                }
+
+            case ObjectType.PIN: {
+                const resultInitAStar = initAStar(obj.pinCoords);
+                if (resultInitAStar) dragMode.current = DragModeType.ROUTING;
+                lastPos.current = { x: e.clientX, y: e.clientY };
+            }; break;
+
+            case ObjectType.NONE: {
+                dragMode.current = DragModeType.SCROLL;
+                // Запоминаем стартовую позицию мыши и камеры
                 lastPos.current = {
                     startX: e.clientX,
                     startY: e.clientY,
-                    elemStartX: elem.pos[0],
-                    elemStartY: elem.pos[1]
+                    viewStartX: viewRef.current.x,
+                    viewStartY: viewRef.current.y
                 };
-            } else if (obj.type === ObjectType.PIN) {
-                const resultInitAStar = initAStar(obj.pinCoords);
-                if (resultInitAStar) dragMode.current = DragMode.ROUTING;
-                lastPos.current = { x: e.clientX, y: e.clientY };
-            }
-        } else {
-            dragMode.current = DragMode.SCROLL;
-            // Запоминаем стартовую позицию мыши и камеры
-            lastPos.current = {
-                startX: e.clientX,
-                startY: e.clientY,
-                viewStartX: viewRef.current.x,
-                viewStartY: viewRef.current.y
-            };
+            }; break;
         }
     }, [ScreenToGlobal, getObjectUnderCursor, selectedChanged, initAStar]);
 
     // MOUSE MOVE ------------------------------------------------
     const handleMouseMove = (e) => {
         const pt = ScreenToGlobal(e.clientX, e.clientY);
-        const obj = getObjectUnderCursor(pt);
-        hoveredChanged(obj);
+        if (dragMode.current === DragModeType.NONE) {
+            const obj = getObjectUnderCursor(pt);
+            hoveredChanged(obj);
+        }
 
         // DEBUG
-        const canvasRect = canvasRef.current.getBoundingClientRect();
-        setMousePos({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top });
-        setGlobalPos(pt);
+        //const canvasRect = canvasRef.current.getBoundingClientRect();
+        //setMousePos({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top });
+        //setGlobalPos(pt);
+        // DEBUG END
 
-        if (dragMode.current && lastPos.current) {
+        if (lastPos.current) {
             const { startX, startY } = lastPos.current;
-            const zoom = viewRef.current.zoom;
-
             switch (dragMode.current) {
-                case DragMode.SCROLL: {
+                case DragModeType.SCROLL: {
                     const { viewStartX, viewStartY } = lastPos.current;
                     viewRef.current.x = viewStartX - (e.clientX - startX);
                     viewRef.current.y = viewStartY - (e.clientY - startY);
                     setView({ ...viewRef.current });
                 } break;
 
-                case DragMode.ELEMENT: {
+                case DragModeType.ELEMENT: {
                     const { elemStartX, elemStartY } = lastPos.current;
                     const id = selectedRef.current.elementId;
                     const newElem = { ...schemaRef.current.elements[id] };
-
                     // Считаем новую позицию от начальной точки
                     newElem.pos = [
-                        elemStartX + (e.clientX - startX) / zoom,
-                        elemStartY + (e.clientY - startY) / zoom
+                        elemStartX + (e.clientX - startX) / viewRef.current.zoom,
+                        elemStartY + (e.clientY - startY) / viewRef.current.zoom
                     ];
                     onElemChanged(newElem, false);
                 } break;
 
-                case DragMode.ROUTING: {
+                case DragModeType.ROUTING: {
                     routeAStar(pt);
                 } break;
             }
@@ -454,8 +460,8 @@ const SchemaCanvas = forwardRef(({
     const handleMouseUp = (e) => {
 
         if (e.button !== DRAG_BUTTON) return;
-        if (dragMode.current !== DragMode.ROUTING) {
-            dragMode.current = { type: ObjectType.NONE };
+        if (dragMode.current !== DragModeType.ROUTING) {
+            dragMode.current = DragModeType.NONE;
         }
     };
 

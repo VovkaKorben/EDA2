@@ -7,7 +7,7 @@ export const ObjectType = Object.freeze({
     WIRE: 'WIRE'
 });
 
-export const DragMode = Object.freeze({
+export const DragModeType = Object.freeze({
     NONE: 'NONE',
     SCROLL: 'SCROLL',
     ROUTING: 'ROUTING',
