@@ -61,3 +61,11 @@
             lastPos.current = { x: e.clientX, y: e.clientY };
         }
     };
+
+
+
+    // DEBUG
+        //const canvasRect = canvasRef.current.getBoundingClientRect();
+        //setMousePos({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top });
+        //setGlobalPos(pt);
+        // DEBUG END

@@ -19,7 +19,7 @@ const SchemaCanvas = forwardRef(({
 }, ref) => {
 
     const canvasRef = useRef(null);
-    const dragMode = useRef(null);
+    const dragMode = useRef(DragModeType.NONE);
     //useEffect(() => {        console.log(`dragMode: ${dragMode.current}`);    }, [dragMode.current]);
 
 
@@ -143,20 +143,30 @@ const SchemaCanvas = forwardRef(({
         // Рисуем сетку А*, если мы в режиме роутинга
         if (dragMode.current === DragModeType.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
 
-        // if 
-        if (hovered.type === ObjectType.PIN) {
-            let pinCoords = pinToCoords(hovered);
-            pinCoords = GlobalToScreen(pinCoords);
+        // Подсветка пинов и узлов (PIN / TCONN) 
+        if (hovered.type === ObjectType.PIN || hovered.type === ObjectType.TCONN) {
+            let drawPoint;
+            if (hovered.type === ObjectType.PIN) {
+                drawPoint = pinToCoords(hovered);
 
-
+            } else if (hovered.type === ObjectType.TCONN) {
+                //
+            }
+            drawPoint = GlobalToScreen(drawPoint);
             ctx.lineWidth = 1; ctx.fillStyle = DrawColor.HOVERED;
             ctx.beginPath();
-            ctx.arc(pinCoords[0], pinCoords[1], 5, 0, 2 * Math.PI);
+            ctx.arc(...drawPoint, 5, 0, 2 * Math.PI);
             ctx.fill();
         }
 
+        // Отрисовка проводов (существующих)
+        schemaElements.wires.forEach(wire => {
+            let isHovered = (hovered.type === ObjectType.WIRE && hovered.wireId === wire.id);
+            // Рисуем линию. Если isHovered — делаем её толще или ярче.
+        });
 
-        Object.values(schemaElements.elements).forEach(elem => {// each element on schematic
+        // Отрисовка элементов и их пинов
+        Object.values(schemaElements.elements).forEach(elem => {
             const libElement = libElements[elem.typeId];
             if (libElement) {
 
@@ -213,7 +223,7 @@ const SchemaCanvas = forwardRef(({
         drawRef.current();
     }, [drawAll]);
     useEffect(() => {// update canvas size
-        dragMode.current = DragModeType.NONE;
+
         const canvas = canvasRef.current;
         if (!canvas) return;
         const resizeObserver = new ResizeObserver(() => {
@@ -381,78 +391,120 @@ const SchemaCanvas = forwardRef(({
         const obj = getObjectUnderCursor(pt);
         selectedChanged(obj);
 
-        switch (obj.type) {
-            case ObjectType.ELEMENT:
-                {
-                    dragMode.current = DragModeType.ELEMENT;
-                    const elem = schemaRef.current.elements[obj.elementId];
-                    // Запоминаем стартовую позицию мыши и элемента
+        // current mode is routing
+        if (dragMode.current === DragModeType.ROUTING) {
+            switch (obj.type) {
+
+                // connected to pin
+                case ObjectType.PIN: {
+                    // create wire between   aStarRef.current.startObject and obj
+                    schemaRef.current
+                    
+                    aStarRef.current. 
+                    startObject
+                    // schemaRef.current
+
+
+
+                    dragMode.current = DragModeType.NONE;
+                    setActiveRoute(null);
+                }
+
+            }
+        }
+        else {
+
+            switch (obj.type) {
+                case ObjectType.ELEMENT:
+                    {
+                        dragMode.current = DragModeType.ELEMENT;
+                        const elem = schemaRef.current.elements[obj.elementId];
+                        // Запоминаем стартовую позицию мыши и элемента
+                        lastPos.current = {
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            elemStartX: elem.pos[0],
+                            elemStartY: elem.pos[1]
+                        }; break;
+                    }
+
+                case ObjectType.PIN: {
+                    const resultInitAStar = initAStar(obj.pinCoords);
+                    if (resultInitAStar) {
+                        aStarRef.current.startObject = obj;
+                        dragMode.current = DragModeType.ROUTING;
+                    }
+                }; break;
+
+                case ObjectType.NONE: {
+                    dragMode.current = DragModeType.SCROLL;
+                    // Запоминаем стартовую позицию мыши и камеры
                     lastPos.current = {
                         startX: e.clientX,
                         startY: e.clientY,
-                        elemStartX: elem.pos[0],
-                        elemStartY: elem.pos[1]
-                    }; break;
-                }
-
-            case ObjectType.PIN: {
-                const resultInitAStar = initAStar(obj.pinCoords);
-                if (resultInitAStar) dragMode.current = DragModeType.ROUTING;
-                lastPos.current = { x: e.clientX, y: e.clientY };
-            }; break;
-
-            case ObjectType.NONE: {
-                dragMode.current = DragModeType.SCROLL;
-                // Запоминаем стартовую позицию мыши и камеры
-                lastPos.current = {
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    viewStartX: viewRef.current.x,
-                    viewStartY: viewRef.current.y
-                };
-            }; break;
+                        viewStartX: viewRef.current.x,
+                        viewStartY: viewRef.current.y
+                    };
+                }; break;
+            }
         }
     }, [ScreenToGlobal, getObjectUnderCursor, selectedChanged, initAStar]);
 
     // MOUSE MOVE ------------------------------------------------
     const handleMouseMove = (e) => {
         const pt = ScreenToGlobal(e.clientX, e.clientY);
+        const obj = getObjectUnderCursor(pt);
+
+        // 1. Если ничего не тянем — просто обновляем hovered и выходим
         if (dragMode.current === DragModeType.NONE) {
-            const obj = getObjectUnderCursor(pt);
             hoveredChanged(obj);
+            return;
         }
 
-        // DEBUG
-        //const canvasRect = canvasRef.current.getBoundingClientRect();
-        //setMousePos({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top });
-        //setGlobalPos(pt);
-        // DEBUG END
+        // 2. Если мы в режиме действия — работаем по dragMode
+        switch (dragMode.current) {
+            case DragModeType.SCROLL: {
+                // Достаем данные только здесь, когда уверены, что они есть
+                const { startX, startY, viewStartX, viewStartY } = lastPos.current;
+                viewRef.current.x = viewStartX - (e.clientX - startX);
+                viewRef.current.y = viewStartY - (e.clientY - startY);
+                setView({ ...viewRef.current });
+                break;
+            }
 
-        if (lastPos.current) {
-            const { startX, startY } = lastPos.current;
-            switch (dragMode.current) {
-                case DragModeType.SCROLL: {
-                    const { viewStartX, viewStartY } = lastPos.current;
-                    viewRef.current.x = viewStartX - (e.clientX - startX);
-                    viewRef.current.y = viewStartY - (e.clientY - startY);
-                    setView({ ...viewRef.current });
-                } break;
-
-                case DragModeType.ELEMENT: {
-                    const { elemStartX, elemStartY } = lastPos.current;
-                    const id = selectedRef.current.elementId;
-                    const newElem = { ...schemaRef.current.elements[id] };
-                    // Считаем новую позицию от начальной точки
-                    newElem.pos = [
+            case DragModeType.ELEMENT: {
+                const { startX, startY, elemStartX, elemStartY } = lastPos.current;
+                const id = selectedRef.current.elementId;
+                const newElem = {
+                    ...schemaRef.current.elements[id],
+                    pos: [
                         elemStartX + (e.clientX - startX) / viewRef.current.zoom,
                         elemStartY + (e.clientY - startY) / viewRef.current.zoom
-                    ];
-                    onElemChanged(newElem, false);
-                } break;
+                    ]
+                };
+                onElemChanged(newElem, false);
+                break;
+            }
 
-                case DragModeType.ROUTING: {
-                    routeAStar(pt);
-                } break;
+            // moving mouse in ROUTE mode
+            case DragModeType.ROUTING: {
+                let targetPt = pt;
+
+                if (obj.type === ObjectType.PIN) {
+                    targetPt = obj.pinCoords;
+                    hoveredChanged(obj);
+                } else if (obj.type === ObjectType.TCONN) {
+                    targetPt = obj.pos;
+                    hoveredChanged(obj);
+                } else if (obj.type === ObjectType.WIRE) {
+                    // Здесь будет логика snapPt для виртуального TCONN
+                    hoveredChanged(obj);
+                } else {
+                    hoveredChanged({ type: ObjectType.NONE });
+                }
+
+                routeAStar(targetPt);
+                break;
             }
         }
     };
@@ -468,7 +520,7 @@ const SchemaCanvas = forwardRef(({
 
     return (
         <React.Fragment>
-            {`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Global: [${globalPos[0].toFixed(2)}, ${globalPos[1].toFixed(2)}]`}<br />
+            {/*`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Global: [${globalPos[0].toFixed(2)}, ${globalPos[1].toFixed(2)}]`*/}
             {/* hovered: {prettify(hovered, 0)} */}
             <canvas
                 onDragOver={handleDragOver}
