@@ -31,7 +31,7 @@ const SchemaCanvas = forwardRef(({
 }, ref) => {
 
     const canvasRef = useRef(null);
-    const dragMode = useRef(null);
+    const dragMode = useRef(DragModeType.NONE);
     //useEffect(() => {        console.log(`dragMode: ${dragMode.current}`);    }, [dragMode.current]);
 
 
@@ -251,6 +251,33 @@ const SchemaCanvas = forwardRef(({
 
         // elementes
         Object.values(schemaElements.elements).forEach(elem => {// each element on schematic
+        // Рисуем сетку А*, если мы в режиме роутинга
+        if (dragMode.current === DragModeType.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
+
+        // Подсветка пинов и узлов (PIN / TCONN) 
+        if (hovered.type === ObjectType.PIN || hovered.type === ObjectType.TCONN) {
+            let drawPoint;
+            if (hovered.type === ObjectType.PIN) {
+                drawPoint = pinToCoords(hovered);
+
+            } else if (hovered.type === ObjectType.TCONN) {
+                //
+            }
+            drawPoint = GlobalToScreen(drawPoint);
+            ctx.lineWidth = 1; ctx.fillStyle = DrawColor.HOVERED;
+            ctx.beginPath();
+            ctx.arc(...drawPoint, 5, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        // Отрисовка проводов (существующих)
+        schemaElements.wires.forEach(wire => {
+            let isHovered = (hovered.type === ObjectType.WIRE && hovered.wireId === wire.id);
+            // Рисуем линию. Если isHovered — делаем её толще или ярче.
+        });
+
+        // Отрисовка элементов и их пинов
+        Object.values(schemaElements.elements).forEach(elem => {
             const libElement = libElements[elem.typeId];
             if (libElement) {
 
@@ -330,7 +357,7 @@ const SchemaCanvas = forwardRef(({
         drawRef.current();
     }, [drawAll]);
     useEffect(() => {// update canvas size
-        dragMode.current = DragModeType.NONE;
+
         const canvas = canvasRef.current;
         if (!canvas) return;
         const resizeObserver = new ResizeObserver(() => {
@@ -535,6 +562,62 @@ const SchemaCanvas = forwardRef(({
             }
             onWireChanged(newWire, true);
 
+        // current mode is routing
+        if (dragMode.current === DragModeType.ROUTING) {
+            switch (obj.type) {
+
+                // connected to pin
+                case ObjectType.PIN: {
+                    // create wire between   aStarRef.current.startObject and obj
+                    schemaRef.current
+                    
+                    aStarRef.current. 
+                    startObject
+                    // schemaRef.current
+
+
+
+                    dragMode.current = DragModeType.NONE;
+                    setActiveRoute(null);
+                }
+
+            }
+        }
+        else {
+
+            switch (obj.type) {
+                case ObjectType.ELEMENT:
+                    {
+                        dragMode.current = DragModeType.ELEMENT;
+                        const elem = schemaRef.current.elements[obj.elementId];
+                        // Запоминаем стартовую позицию мыши и элемента
+                        lastPos.current = {
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            elemStartX: elem.pos[0],
+                            elemStartY: elem.pos[1]
+                        }; break;
+                    }
+
+                case ObjectType.PIN: {
+                    const resultInitAStar = initAStar(obj.pinCoords);
+                    if (resultInitAStar) {
+                        aStarRef.current.startObject = obj;
+                        dragMode.current = DragModeType.ROUTING;
+                    }
+                }; break;
+
+                case ObjectType.NONE: {
+                    dragMode.current = DragModeType.SCROLL;
+                    // Запоминаем стартовую позицию мыши и камеры
+                    lastPos.current = {
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        viewStartX: viewRef.current.x,
+                        viewStartY: viewRef.current.y
+                    };
+                }; break;
+            }
         }
 
 
@@ -620,8 +703,8 @@ const SchemaCanvas = forwardRef(({
 
         const pt = screenToParrots(e.clientX, e.clientY);
         if (dragMode.current === DragModeType.NONE) {
-            const obj = getObjectUnderCursor(pt);
             hoveredChanged(obj);
+            return;
         }
 
         // DEBUG
