@@ -61,3 +61,26 @@
             lastPos.current = { x: e.clientX, y: e.clientY };
         }
     };
+
+
+храним
+
+    "wires": {
+    "w_1": {
+        "id": "w_1",
+        "source": { "type": "PIN", "elementId": 123, "pinIdx": 0 },
+        "target": { "type": "TCONN", "pos": [52, 45] }, // Прямо в объекте храним точку стыка
+        "path": [[10, 45], [52, 45]] // Кеш пути для отрисовки
+    }
+}
+
+клик по проводу
+{
+    type: ObjectType.WIRE,
+    wireId: "w_105",     // ID провода из твоего стейта
+    pos: [52, 45],       // Точка в попугаях, куда мы "врезаемся"
+    // Можно также добавить ссылку на сам объект провода для удобства
+}
+
+{type: 'PIN', elementId: 1770957831203, pinIdx: 'PIN1', pinCoords: Array(2)}
+{type: 'PIN', elementId: 1770957832868, pinIdx: 'PIN2', pinCoords: Array(2)}

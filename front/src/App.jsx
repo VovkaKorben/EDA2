@@ -5,15 +5,16 @@ import ElementsList from './component/ElementsList';
 import Library from './component/Library';
 
 import { ObjectType } from './helpers/utils.js';
-import { LoadElems } from './helpers/db.js';
-import './App.css'
+import { LoadElems } from './helpers/geo.js';
+import './css/App.css'
+import './css/flex.css'
 
 
 import { prettify } from './helpers/debug.js';
 
 const defaultSchemaElements = {
     elements: {},
-    wires: []
+    wires: {}
 };
 
 function App() {
@@ -40,13 +41,21 @@ function App() {
 
     const [schemaElements, setSchemaElements] = useState(JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements);
     useEffect(() => { localStorage.setItem('schemaElements', JSON.stringify(schemaElements)); }, [schemaElements]);
-    const ClearSchema = () => { setSchemaElements(defaultSchemaElements) }
+    const ClearSchema = (keep_elements) => {
+        const newElements = keep_elements ? { ...schemaElements.elements } : {};
+        setSchemaElements({
+            elements: newElements,
+            wires: {}
+        });
+
+    }
 
     // buttons processing
     const handleAction = (actionId) => {
         switch (actionId) {
             // case 1: LoadElems(); break;
-            case 2: ClearSchema(); break;
+            case 20: ClearSchema(false); break;//Clear all
+            case 21: ClearSchema(true); break;//Clear wires
             case 1://load
                 break;
             case 5://Save
@@ -54,8 +63,8 @@ function App() {
             case 3: refSchemaCanvas.current?.resetView(); break;
             case 4:
 
-                console.log(JSON.stringify(libElements));
-                console.log(JSON.stringify(schemaElements));
+                console.log(prettify(libElements, 0));
+                console.log(prettify(schemaElements, 0));
                 break;
         }
     }
@@ -63,12 +72,25 @@ function App() {
     const onElemChanged = useCallback((elem, select) => {
         setSchemaElements(prev => {
             const newElements = { ...prev.elements, [elem.id]: elem };
-            // setSelected(null);
             if (select) {
                 setSelected({ type: ObjectType.ELEMENT, elementId: elem.id });
             }
             return { ...prev, elements: newElements };
         });
+    }, []);
+
+
+    const onWireChanged = useCallback((wire, select) => {
+        setSchemaElements(prev => {
+            const newWires = { ...prev.wires, [wire.id]: wire };
+            // if (select) {                setSelected({ type: ObjectType.ELEMENT, elementId: elem.id });            }
+            return { ...prev, wires: newWires };
+        });
+
+
+
+
+
     }, []);
 
     const onElemDeleted = useCallback((elementId) => {
@@ -118,6 +140,7 @@ function App() {
                     selectedChanged={(obj) => setSelected(obj)}
                     onElemChanged={onElemChanged}
                     onElemDeleted={onElemDeleted}
+                    onWireChanged={onWireChanged}
                 /></div>
 
 

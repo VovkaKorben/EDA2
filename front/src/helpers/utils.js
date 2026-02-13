@@ -1,10 +1,12 @@
-
+export const API_URL = 'http://localhost:3100/api/';
 
 export const ObjectType = Object.freeze({
     NONE: 'NONE',
     PIN: 'PIN',
     ELEMENT: 'ELEMENT',
-    WIRE: 'WIRE'
+    WIRE: 'WIRE',
+    TCONN: 'TCONN',
+
 });
 
 export const DragModeType = Object.freeze({

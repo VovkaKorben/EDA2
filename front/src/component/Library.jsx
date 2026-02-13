@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 // import { drawElement } from '../helpers/geo.js';
 import { dpr, drawElement } from '../helpers/draw.js';
+// import { dpr } from '../helpers/dpr.js';
 // import {  } from '../helpers/utils.js';
 const elemSize = 50;
 const elemMargin = 5; // in percent, i.e. for value 5 component take 100 - (2*5) = 90%

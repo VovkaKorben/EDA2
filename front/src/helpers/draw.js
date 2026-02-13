@@ -1,50 +1,42 @@
-// import { dpr } from './utils.js';
+
 import { addPoint, multiplyPoint } from './geo.js';
 
 
-export const dpr = window.devicePixelRatio || 1;
-export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
+export const dpr = (globalThis.window !== undefined) ? (window.devicePixelRatio || 1) : null;
+export const GRID_SIZE = 2.5;
 
-export const drawGridDebug = (ctx, grid, GlobalToScreen) => {
+export const adjustCtx = (v) => Math.round(v) + 0.5;
+export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
+/**
+ * Отрисовка сетки весов A* для отладки
+ * @param {CanvasRenderingContext2D} ctx 
+ * @param {Object} grid - объект из prepareAStarGrid
+ * @param {Function} parrotsToScreen - твоя функция (px, py) => [sx, sy]
+ */
+export const drawGridDebug = (ctx, grid, parrotsToScreen) => {
+    if (!grid || !grid.weights) return;
+
+    const rctSize = 5;
     ctx.save();
 
 
-    // 2. Рисуем "веса" (препятствия) как точки на пересечениях
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+    // 2. Рисуем "веса" (препятствия)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.25)'; // Красные квадраты для стен
+
     for (let y = 0; y < grid.h; y++) {
         for (let x = 0; x < grid.w; x++) {
-            if (grid.weights[y * grid.w + x] > 0) {
-                const [sx, sy] = GlobalToScreen([grid.gridX[x], grid.gridY[y]]);
-                // Квадратик 5x5, центрированный ровно на перекрестии линий
-                ctx.fillRect(sx - 4, sy - 4, 9, 9);
+            const weight = grid.weights[y * grid.w + x];
+
+            if (weight > 0) {
+                // Переводим координаты попугая в экранные пиксели
+                const [sx, sy] = parrotsToScreen([grid.x + x, grid.y + y]);
+
+                // Размер одного "попугая" на экране — это и есть наш interval
+                // Для дебага можно просто взять небольшой фикс, чтобы не искать интервал
+                ctx.fillRect(sx - rctSize / 2, sy - rctSize / 2, rctSize, rctSize);
             }
         }
     }
-
-    // 1. Рисуем линии сетки
-    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)'; // Очень бледные линии
-    ctx.lineWidth = 0.5;
-
-    // Вертикальные линии
-    grid.gridX.forEach(x => {
-        const [screenX] = GlobalToScreen([x, 0]);
-        ctx.beginPath();
-        ctx.moveTo(screenX, 0);
-        ctx.lineTo(screenX, ctx.canvas.height);
-        ctx.stroke();
-    });
-
-    // Горизонтальные линии
-    grid.gridY.forEach(y => {
-        const [, screenY] = GlobalToScreen([0, y]);
-        ctx.beginPath();
-        ctx.moveTo(0, screenY);
-        ctx.lineTo(ctx.canvas.width, screenY);
-        ctx.stroke();
-    });
-
-    // 2. Рисуем "веса" (препятствия)
-    // ctx.fillStyle = 'rgba(255, 0, 0, 0.15)'; // Полупрозрачные красные квадраты
 
     ctx.restore();
 };
