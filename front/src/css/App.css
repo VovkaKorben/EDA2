@@ -115,3 +115,9 @@ html {
   text-overflow: ellipsis;
   font-size: 10px;
 }
+
+.wr {
+  /* white-space: wrap; */
+  /* overflow-wrap: break-word; */
+  white-space: pre-wrap;
+}

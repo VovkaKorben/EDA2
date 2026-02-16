@@ -4,13 +4,13 @@ import { dpr, drawElement } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
 import { DrawColor } from '../helpers/utils.js';
 const elemSize = 50;
-// const elemMargin = 5; // in percent, i.e. for value 5 component take 100 - (2*5) = 90%
-// const elemSizeScaled = Math.round(elemSize * dpr);
+const elemMargin = 5; // in percent, i.e. for value 5 component take 100 - (2*5) = 90%
+const elemSizeScaled = Math.round(elemSize * dpr);
 
 
 
 
-const LibraryItem = ({ elem }) => {
+const LibraryItem = ({ elem: lib }) => {
     const canvasRef = useRef(null);
 
     // draw principial
@@ -27,10 +27,10 @@ const LibraryItem = ({ elem }) => {
 
 
         const toDraw = {
-            ...elem,
+            ...lib,
             pos: [elemSize / 2, elemSize / 2],
 
-            zoom: 2,
+            zoom: 3,
             rotate: 0,
             color: DrawColor.NORMAL,
             width: 1
@@ -38,11 +38,11 @@ const LibraryItem = ({ elem }) => {
 
         drawElement(ctx, toDraw);
 
-    }, [elem]);
+    }, [lib]);
 
     // store elem in drag object
     const handleDragStart = (e) => {
-        e.dataTransfer.setData('compData', JSON.stringify(elem));
+        e.dataTransfer.setData('compData', JSON.stringify(lib));
         e.dataTransfer.effectAllowed = 'move';
     };
     return (
@@ -57,23 +57,23 @@ const LibraryItem = ({ elem }) => {
                 height={elemSize * dpr}
                 style={{ width: elemSize, height: elemSize }}
             />
-            <div className='label'>{elem.name}</div>
+            <div className='label'>{lib.name}</div>
         </div>
 
     );
 
 }
 // //{elems.map((elem) => {
-const Library = ({ elems }) => {
+const Library = ({  libs }) => {
 
 
     return (
         <div id="library">
-            {Object.values(elems).map((elem) => {
+            {Object.values(libs).map((lib) => {
 
                 return <LibraryItem
-                    key={elem.typeId}
-                    elem={elem}
+                    key={lib.typeId}
+                    elem={lib}
 
                 />
             })

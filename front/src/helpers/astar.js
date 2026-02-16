@@ -17,6 +17,7 @@ export const parrotsToFlat = (grid, point) => {
 
 
 }
+// convert flat indexes to parrots
 export const flatToParrots = (grid, flatIndexes) => {
 
     // convert flat index to grid indexes
@@ -27,8 +28,34 @@ export const flatToParrots = (grid, flatIndexes) => {
     });
     return parrots;
 }
-
+// from full-pointed path create short, key-pointed 
 export const collapseRoute = (parrots) => {
+    if (parrots.length < 2) return parrots;
+
+    const path = [parrots[0]];
+    let prevDir = null;
+
+    for (let i = 1; i < parrots.length; i++) {
+        const dx = parrots[i][0] - parrots[i - 1][0];
+        const dy = parrots[i][1] - parrots[i - 1][1];
+
+        // Пропускаем дубликаты точек (нулевое смещение)
+        if (dx === 0 && dy === 0) continue;
+
+        // Направление как вектор из знаков (-1, 0, 1)
+        const currentDir = [Math.sign(dx), Math.sign(dy)];
+
+        if (prevDir && !isPointEqual(prevDir, currentDir)) {
+            // Если направление изменилось, сохраняем угол
+            path.push(parrots[i - 1]);
+        }
+        prevDir = currentDir;
+    }
+
+    path.push(parrots[parrots.length - 1]);
+    return path;
+};
+/*export const collapseRoute = (parrots) => {
     // console.log(prettify(route, 0));
     let path = [];
     if (parrots.length > 1) {
@@ -56,8 +83,8 @@ export const collapseRoute = (parrots) => {
 
     }
     return path;
-}
-
+}*/
+// create full path from key-pointed
 export const expandPath = (parrots) => {
     // console.log(prettify(path,0));
     if (parrots.length === 0) return [];
@@ -80,14 +107,52 @@ export const expandPath = (parrots) => {
     // console.log(prettify(r,0));
     return r;
 }
-
 // search node in path and split path into two parts
 export const splitPath = (path, node) => {
     const nodeIndex = path.findIndex(n => isPointEqual(n, node));
-    const path1 = path.slice(0, nodeIndex+1);
-    const path2 = path.slice(nodeIndex );
-    return [path1, path2]
+    const path1 = path.slice(0, nodeIndex + 1);
+    const path2 = path.slice(nodeIndex);
+    const path2rev = path2.reverse();
+    return [path1, path2rev]
 }
+// from paths array connect closest points
+export const mergePaths = (paths) => {
+
+    if (paths.length === 0) return [];
+    let merged = [...paths.pop()];
+    while (paths.length > 0) {
+
+        const mergedStart = merged[0];
+        const mergedEnd = merged.at(-1);
+
+        for (let i = 0; i < paths.length; i++) {
+
+            const testPath = paths[i];
+            const testStart = testPath[0];
+            const testEnd = testPath.at(-1);
+
+            if (isPointEqual(mergedEnd, testStart)) {
+                merged.push(testPath);
+                paths.splice(i, 1);
+                break;
+            } else if (isPointEqual(mergedEnd, testEnd)) {
+                merged.push([...testPath].reverse());
+                paths.splice(i, 1);
+                break;
+            } else if (isPointEqual(mergedStart, testEnd)) {
+                merged.unshift(...testPath);
+                paths.splice(i, 1);
+                break;
+            } else if (isPointEqual(mergedStart, testStart)) {
+                merged.unshift([...testPath].reverse());
+                paths.splice(i, 1);
+                break;
+            }
+        }
+    }
+    return merged;
+}
+
 export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
     const r = {};
 
@@ -158,7 +223,8 @@ export const doAStar = (grid) => {
             current = cameFrom[current];
             total_path.push(current)
         }
-        return total_path;
+        const reversed = total_path.reverse();
+        return reversed;
     }
 
     const dist = (flatIndex1, flatIndex2) => {

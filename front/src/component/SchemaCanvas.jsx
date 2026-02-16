@@ -5,7 +5,7 @@ import { drawElement, drawPins, drawName, drawWire, adjustPoint, drawGridDebug, 
 // import { dpr } from '../helpers/dpr.js';
 import { clamp, addPoint, pointsDistance, transformRect, ptInRect, roundPoint, isPointEqual } from '../helpers/geo.js';
 import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
-import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath } from '../helpers/astar.js';
+import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath, mergePaths } from '../helpers/astar.js';
 
 const GRID_BOLD_EACH = 10;
 const SELECT_TOLERANCE = 0.5;
@@ -99,7 +99,7 @@ const SchemaCanvas = forwardRef(({
 
         // calc flat-indexes
         const indexRoute = doAStar(aStarRef.current);
-        console.log(prettify(indexRoute, 0));
+        // console.log(prettify(indexRoute, 0));
 
         // convert flat-indexes to global-coords
         let simpleRoute = flatToParrots(aStarRef.current, indexRoute);
@@ -194,7 +194,7 @@ const SchemaCanvas = forwardRef(({
                     if (Math.abs(my - y1) < SELECT_TOLERANCE &&
                         mx >= Math.min(x1, x2) - SELECT_TOLERANCE &&
                         mx <= Math.max(x1, x2) + SELECT_TOLERANCE) {
-                        return { type: ObjectType.WIRE, wireId: wire.id, pos: [Math.round(mx), y1] };
+                        return { type: ObjectType.WIRE, wireId: wire.wireId, pos: [Math.round(mx), y1] };
                     }
                 }
                 // Если это вертикальный сегмент (x одинаковый)
@@ -202,7 +202,7 @@ const SchemaCanvas = forwardRef(({
                     if (Math.abs(mx - x1) < SELECT_TOLERANCE &&
                         my >= Math.min(y1, y2) - SELECT_TOLERANCE &&
                         my <= Math.max(y1, y2) + SELECT_TOLERANCE) {
-                        return { type: ObjectType.WIRE, wireId: wire.id, pos: [x1, Math.round(my)] };
+                        return { type: ObjectType.WIRE, wireId: wire.wireId, pos: [x1, Math.round(my)] };
                     }
                 }
             }
@@ -249,7 +249,7 @@ const SchemaCanvas = forwardRef(({
 
             // проверяем, были ли провода, с таким же концом
             const sameConn = [];
-            schemaRef.current.wires.forEach(wireToCheck => {
+            Object.values(schemaRef.current.wires).forEach(wireToCheck => {
                 if (wireToCheck.source.type === ObjectType.TCONN && isPointEqual(conn.pos, wireToCheck.source.pos)) {
                     sameConn.push({
                         wireId: wireToCheck.wireId,
@@ -264,12 +264,39 @@ const SchemaCanvas = forwardRef(({
                 }
 
             });
+            console.log(`sameConn ${prettify(sameConn, 1)}`);
+
+            // create new wire if in connection point was exact 2 wires
+            if (sameConn.length !== 2) return;
 
 
+            // calculate merged paths for both wires
+            let path = [];
+            sameConn.forEach(w => path.push(schemaRef.current.wires[w.wireId].path));
+            path = mergePaths(path);
+            console.log(`mergePaths ${prettify(path, 1)}`);
+            path = collapseRoute(path);
+            console.log(`collapseRoute ${prettify(path, 1)}`);
+
+            // clear previous wires
+            sameConn.forEach(w => delete schemaRef.current.wires[w.wireId]);
+
+            // create compound wire
+            const newWireId = getNewWireId();
+            const newWire = {
+                wireId: newWireId,
+                source: sameConn[0].conn,
+                target: sameConn[1].conn,
+                path: path
+            }
+            schemaRef.current.wires[newWireId] = newWire;
+
+            // schemaRef.current.wires
+            // console.log(`mergePaths ${prettify(path, 1)}`);
 
         }
 
-        const wire = schemaRef.current.wires[wireId];
+        const wire = { ...schemaRef.current.wires[wireId] };
         if (!wire) return;
         // удаляем провод сразу, чтобы он не участовал
         delete schemaRef.current.wires[wireId];
@@ -292,27 +319,28 @@ const SchemaCanvas = forwardRef(({
     }, [selectedChanged, onWiresChanged]);
 
     const createWire = useCallback((source, target) => {
-        console.log(source);
-        console.log(target);
+        // console.log(source);        console.log(target);
+        // const isPoint
 
 
         let wireId, newWire;
-        if (target.type === ObjectType.WIRE) { // target are WIRE
+        if (target.type === ObjectType.WIRE) { // target are WIRE, break it with T-Conn
 
             pprint(target)
             //const otherSide = source.type === ObjectType.WIRE ?
 
-            const targetWire = { ...schemaRef.current.wires[target.wireId] } //запоминаем текущий сегмент
-            pprint(targetWire)
+            const removedWire = { ...schemaRef.current.wires[target.wireId] } //запоминаем текущий сегмент
+            pprint(removedWire)
             delete schemaRef.current.wires[target.wireId]; //удаляем его
 
 
             // режем старый провод по соединению
-            let oldWirePath = targetWire.path;
-            oldWirePath = expandPath(oldWirePath);
-            const oldPaths = splitPath(oldWirePath, target.pos);
-            const oldPath1 = collapseRoute(oldPaths[0]);
-            const oldPath2 = collapseRoute(oldPaths[1]);
+            // восстановили все точки, порезали по ключевой и сделали 2 пути
+            let removedPath = removedWire.path;
+            removedPath = expandPath(removedPath);
+            const oldPaths = splitPath(removedPath, target.pos);
+            const oldPath1 = collapseRoute(oldPaths[0]); // source -> tconn
+            const oldPath2 = collapseRoute(oldPaths[1]); // target -> tconn
 
 
             // добавляем ТРИ новых сегмента
@@ -322,27 +350,27 @@ const SchemaCanvas = forwardRef(({
             }
             // - от старой точки1 до новой на проводе
             wireId = getNewWireId();
-            const oldWire1 = {
-                id: wireId,
-                source: targetWire.source,
+            const removedSegment1 = {
+                wireId: wireId,
+                source: removedWire.source,
                 target: targetTCONN,
                 path: oldPath1
             }
-            schemaRef.current.wires[wireId] = oldWire1;
+            schemaRef.current.wires[wireId] = removedSegment1;
             // - от старой точки2 до новой на проводе
             wireId = getNewWireId();
-            const oldWire2 = {
-                id: wireId,
-                source: targetWire.target,
+            const removedSegment2 = {
+                wireId: wireId,
+                source: removedWire.target,
                 target: targetTCONN,
                 path: oldPath2
             }
-            schemaRef.current.wires[wireId] = oldWire2;
+            schemaRef.current.wires[wireId] = removedSegment2;
 
             // - и собсно новый провод
             wireId = getNewWireId();
             newWire = {
-                id: wireId,
+                wireId: wireId,
                 source: source,
                 target: targetTCONN,
                 path: activeRoute
@@ -354,7 +382,7 @@ const SchemaCanvas = forwardRef(({
         } else { // PIN/TCONN to PIN/TCONN connection
             wireId = getNewWireId();
             newWire = {
-                id: wireId,
+                wireId: wireId,
                 source: source,
                 target: target,
                 path: activeRoute
@@ -362,11 +390,12 @@ const SchemaCanvas = forwardRef(({
             schemaRef.current.wires[wireId] = newWire;
 
         }
-        onWiresChanged({ ...schemaRef.current.wires });
         selectedChanged({
             type: ObjectType.WIRE,
-            wireId: newWire.id
+            wireId: newWire.wireId
         });
+        onWiresChanged({ ...schemaRef.current.wires });
+
     }, [activeRoute, onWiresChanged, selectedChanged]);
 
     // ----------------------------------------         MOUSE DOWN
@@ -544,14 +573,22 @@ const SchemaCanvas = forwardRef(({
                         tconn.push(wire.target.pos);
                 }
 
-                const drawColor = (selected?.type === ObjectType.WIRE && wire.id === selected.wireId) ?
+                const drawColor = (selected?.type === ObjectType.WIRE && wire.wireId === selected.wireId) ?
                     DrawColor.SELECTED : DrawColor.NORMAL;
                 drawWire(ctx, wire.path, 1, drawColor, parrotsToScreen);
             });
             // t-conn circles
             ctx.lineWidth = 1; ctx.fillStyle = DrawColor.NORMAL;
             ctx.beginPath();
-            tconn.forEach(pt => ctx.arc(...parrotsToScreen(pt), 5, 0, 2 * Math.PI));
+            // tconn.forEach(pt => ctx.arc(...parrotsToScreen(pt), 5, 0, 2 * Math.PI));
+
+            tconn.forEach(pt => {
+                const [sx, sy] = parrotsToScreen(pt);
+
+                ctx.moveTo(sx + 5, sy);
+                ctx.arc(sx, sy, 5, 0, 2 * Math.PI);
+            });
+
             ctx.fill();
 
         };
@@ -689,7 +726,10 @@ const SchemaCanvas = forwardRef(({
         return () => resizeObserver.disconnect();
     }, []);
 
-    // KEYBOARD ------------------------------------------------
+
+    // ----------------------------------------        KEYBOARD
+    // -----------------------------------------------------------
+    // -----------------------------------------------------------
     useEffect(() => {  // keyboard processing
 
         const rotateElement = (reset) => {
@@ -774,6 +814,16 @@ const SchemaCanvas = forwardRef(({
         });
     };
 
+    const getNewElementId = () => {
+        const existingIDs = Object.keys(schemaRef.current.elements).map(v => +v);
+        let newID = 0;
+        while (existingIDs.includes(newID)) {
+            newID++;
+        };
+        return newID;
+
+    }
+
     // DROP ------------------------------------------------
     const handleDrop = (e) => {
         e.preventDefault();
@@ -795,7 +845,7 @@ const SchemaCanvas = forwardRef(({
             newTypeIndex++
         }
         const newElement = {
-            id: Date.now(),
+            id: getNewElementId(),
             typeId: data.typeId,
             pos: insertPos,
             rotate: 0,

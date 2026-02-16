@@ -197,8 +197,11 @@ export const LoadElems = async () => {
     result.data.forEach((rawElem) => {
         // explode primitives to objects
         const rawPrimitives = [];
-        if (rawElem.turtle) {
-            const primitiveGroup = [...rawElem.turtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+        let trimTurtle = rawElem.turtle;
+        if (trimTurtle) {
+            trimTurtle = trimTurtle.replace(/\s/g, '');
+
+            const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
             // split each primitive to CODE + PARAMS
             for (const prim of primitiveGroup) {
                 const parsedPrim = {
@@ -207,8 +210,8 @@ export const LoadElems = async () => {
                 };
                 rawPrimitives.push(parsedPrim);
             }
-        }
 
+        }
         // explode pins to coords
         const rawPins = {};
 

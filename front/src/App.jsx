@@ -56,15 +56,23 @@ function App() {
             // case 1: LoadElems(); break;
             case 20: ClearSchema(false); break;//Clear all
             case 21: ClearSchema(true); break;//Clear wires
-            case 1://load
+            case 1:
+                {
+                    //load
+                    const data = JSON.parse(localStorage.getItem('saved') || defaultSchemaElements);
+                    setSchemaElements(data);
+                    break;
+                }
+            case 5: {//Save
+                localStorage.setItem('saved', JSON.stringify(schemaElements));
                 break;
-            case 5://Save
-                break;
+
+            }
             case 3: refSchemaCanvas.current?.resetView(); break;
             case 4:
 
                 console.log(prettify(libElements, 0));
-                console.log(prettify(schemaElements, 0));
+                console.log(prettify(schemaElements, 3));
                 break;
         }
     }
@@ -105,7 +113,7 @@ function App() {
             <div className="control-bar">  <Controls onAction={handleAction} /></div>
             <div className="library">
                 <Library
-                    elems={libElements}
+                    libs={libElements}
                 />
             </div>
             <div className="elem-schema">
