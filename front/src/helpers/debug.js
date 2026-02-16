@@ -1,4 +1,4 @@
-{/* <div className="prettify">{prettify(specie_data[food_id], 0)}</div> */}
+{/* <div className="prettify">{prettify(specie_data[food_id], 0)}</div> */ }
 
 /**
  * Выводит объект JavaScript (JSON) в строку с ограничением глубины форматирования.
@@ -118,3 +118,6 @@ export function prettify_v2(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
 
     return output;
 }
+
+
+export function pprint(value, depth = 1) { console.log(prettify(value, depth)); }

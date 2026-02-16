@@ -17,7 +17,7 @@ export const DragModeType = Object.freeze({
 });
 
 export const DrawColor = Object.freeze({
-    NONE: 'black',
-    HOVERED: '#5577FF',
-    SELECTED: 'blue'
+    NORMAL: '#000000',
+    HOVERED: '#ff000055',
+    SELECTED: '#ff0000'
 });

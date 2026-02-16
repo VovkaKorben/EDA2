@@ -1,14 +1,14 @@
-// import { prettify } from './debug.js';
-import { expandRect, snapRect, addPoint, transformRect, ptInRect, pointsDistance, subPoint } from './geo.js';
+import { prettify } from './debug.js';
+import { expandRect, snapRect, addPoint, transformRect, ptInRect, pointsDistance, subPoint, isPointEqual } from './geo.js';
 const GRID_EXPAND = 20; // in parrots
 const DIRECTIONS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 const COMPONENT_WEIGHT = 10000;
 const WIRE_WEIGHT = 100;
 
 const toGrid = (flatIndex, w) => [flatIndex % w, (flatIndex / w) | 0];
-const toFlat = (gridIndexes) => gridIndexes[1] * grid.w + gridIndexes[0];
+const toFlat = (gridIndexes, w) => gridIndexes[1] * w + gridIndexes[0];
 
-export const coordsToFlat = (grid, point) => {
+export const parrotsToFlat = (grid, point) => {
     let [x, y] = point;
     x = x - grid.x;
     y = y - grid.y;
@@ -17,17 +17,89 @@ export const coordsToFlat = (grid, point) => {
 
 
 }
+export const flatToParrots = (grid, flatIndexes) => {
+
+    // convert flat index to grid indexes
+    const parrots = flatIndexes.map((flatIndex) => {
+        let coords = toGrid(flatIndex, grid.w);
+        coords = addPoint(coords, [grid.x, grid.y]);
+        return coords;
+    });
+    return parrots;
+}
+
+export const collapseRoute = (parrots) => {
+    // console.log(prettify(route, 0));
+    let path = [];
+    if (parrots.length > 1) {
 
 
+        // simplify path
+        let prevDirection;
+        path.push(parrots[0]);
+        for (let i = 1; i < parrots.length; i++) {
+
+            const dirCoords = subPoint(parrots[i], parrots[i - 1]);
+            const direction = DIRECTIONS.findIndex(t => t[0] === dirCoords[0] && t[1] === dirCoords[1]);
+
+            // console.log(`${gridIndexes[i - 1]} -> ${gridIndexes[i]}    C:${dirCoords} DI:${direction}`);
+
+            if (i > 1) {
+                if (prevDirection !== direction) {
+                    path.push(parrots[i - 1]);
+                    // console.log(`***point`)
+                }
+            }
+            prevDirection = direction;
+        }
+        path.push(parrots[parrots.length - 1]);
+
+    }
+    return path;
+}
+
+export const expandPath = (parrots) => {
+    // console.log(prettify(path,0));
+    if (parrots.length === 0) return [];
+    const r = [];
+    let prev;
+    parrots.forEach((pt, i) => {
+        if (i === 0) {
+            r.push(pt);
+        } else {
+            const dx = Math.sign(pt[0] - prev[0]);
+            const dy = Math.sign(pt[1] - prev[1]);
+            do {
+                prev = addPoint(prev, [dx, dy]);
+                r.push(prev);
+            }
+            while (!isPointEqual(pt, prev));
+        }
+        prev = pt;
+    })
+    // console.log(prettify(r,0));
+    return r;
+}
+
+// search node in path and split path into two parts
+export const splitPath = (path, node) => {
+    const nodeIndex = path.findIndex(n => isPointEqual(n, node));
+    const path1 = path.slice(0, nodeIndex+1);
+    const path2 = path.slice(nodeIndex );
+    return [path1, path2]
+}
 export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
     const r = {};
 
     // add margins to global bound
-    let bounds = expandRect(parrotBounds, GRID_EXPAND, GRID_EXPAND);
-    r.x = bounds[0];
-    r.y = bounds[1];
-    r.w = bounds[2] - bounds[0] + 1;
-    r.h = bounds[3] - bounds[1] + 1;
+    r.bounds = expandRect(parrotBounds, GRID_EXPAND, GRID_EXPAND);
+    r.x = r.bounds[0];
+    r.y = r.bounds[1];
+    r.w = r.bounds[2] - r.bounds[0] + 1;
+    r.h = r.bounds[3] - r.bounds[1] + 1;
+
+    r.zeroBounds = [0, 0, r.w - 1, r.h - 1];
+
 
     // create weights
     r.weights = new Float32Array(r.w * r.h);
@@ -62,17 +134,13 @@ export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
 
     // adding weights for WIRES
     Object.values(schemaElements.wires).forEach((wire) => {
-        const path = expandPath(wire.path);
-        for (pt of path)
-
-        // each segment 
-
-        /* let elemRect = libElements[elem.typeId].bounds[elem.rotate];
-         elemRect = transformRect(elemRect, elem.pos);
-         elemRect = snapRect(elemRect);
- 
-         fillGrid(elemRect, WIRE_WEIGHT);
-         */
+        const expandedPath = expandPath(wire.path);
+        for (let pt of expandedPath) {
+            if (ptInRect(r.bounds, pt)) {
+                const flatIndex = parrotsToFlat(r, pt);
+                r.weights[flatIndex] = WIRE_WEIGHT;
+            }
+        }
     })
     return r;
 }
@@ -82,7 +150,7 @@ export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
 export const doAStar = (grid) => {
 
 
-    const fieldBounds = [0, 0, grid.w - 1, grid.h - 1];
+
 
     const reconstruct_path = (current) => {
         const total_path = [current];
@@ -118,9 +186,9 @@ export const doAStar = (grid) => {
         const gridIndexes = toGrid(flatIndex, grid.w);
         for (const dir of DIRECTIONS) {
             const testPoint = addPoint(gridIndexes, dir);
-            if (!ptInRect(fieldBounds, testPoint))
+            if (!ptInRect(grid.zeroBounds, testPoint))
                 continue;
-            r.push(toFlat(testPoint));
+            r.push(toFlat(testPoint, grid.w));
         }
         return r;
     }
@@ -181,55 +249,7 @@ export const doAStar = (grid) => {
     return null;
 }
 
-export const simplifyRoute = (grid, route) => {
-    let simplifiedPath = [];
-    if (route.length > 1) {
-        // convert flat index to grid indexes
-        const gridIndexes = route.map((flatIndex) => {
-            let coords = toGrid(flatIndex, grid.w);
-            coords = addPoint(coords, [grid.x, grid.y]);
-            return coords;
-        })
 
-        // simplify path
-        let prevDirection;
-        simplifiedPath.push(gridIndexes[0]);
-        for (let i = 1; i < gridIndexes.length; i++) {
-
-            const dirCoords = subPoint(gridIndexes[i], gridIndexes[i - 1]);
-            const direction = DIRECTIONS.findIndex(t => t[0] === dirCoords[0] && t[1] === dirCoords[1]);
-
-            // console.log(`${gridIndexes[i - 1]} -> ${gridIndexes[i]}    C:${dirCoords} DI:${direction}`);
-
-            if (i > 1) {
-                if (prevDirection !== direction) {
-                    simplifiedPath.push(gridIndexes[i - 1]);
-                    // console.log(`***point`)
-                }
-            }
-            prevDirection = direction;
-        }
-        simplifiedPath.push(gridIndexes[gridIndexes.length - 1]);
-
-    }
-    return simplifiedPath;
-}
-
-
-const expandPath = (path) => {
-    if (path.length === 0) return [];
-    const r = [];
-    let prev;
-    path.forEach((pt, i) => {
-        if (i === 0) { r.push(pt); }
-
-        else { }
-        prev = pt;
-
-
-    })
-
-}
 /*
 
 const le = { "1": { "typeId": 1, "abbr": "R", "descr": "A resistor is a passive component that reduces voltage or limits the current flowing through a circuit.", "name": "resistor", "turtle": [[{ "code": "R", "params": [-5, -2, 10, 4] }, { "code": "L", "params": [-10, 0, -5, 0] }, { "code": "L", "params": [5, 0, 10, 0] }], [{ "code": "R", "params": [2, -5, -4, 10] }, { "code": "L", "params": [0, -10, 0, -5] }, { "code": "L", "params": [0, 5, 0, 10] }], [{ "code": "R", "params": [5, 2, -10, -4] }, { "code": "L", "params": [10, 0, 5, 0] }, { "code": "L", "params": [-5, 0, -10, 0] }], [{ "code": "R", "params": [-2, 5, 4, -10] }, { "code": "L", "params": [0, 10, 0, 5] }, { "code": "L", "params": [0, -5, 0, -10] }]], "pins": [{ "0": [-4, 0], "1": [4, 0] }, { "0": [0, -4], "1": [0, 4] }, { "0": [4, 0], "1": [-4, 0] }, { "0": [0, 4], "1": [0, -4] }], "bounds": [[-4, -0.8, 4, 0.8], [-0.8, -4, 0.8, 4], [-4, -0.8, 4, 0.8], [-0.8, -4, 0.8, 4]] }, "2": { "typeId": 2, "abbr": "C", "descr": "A capacitor is a passive, two-terminal electronic component that stores electrical energy in an electric field by accumulating charge on two conductive plates separated by an insulating dielectric material", "name": "capacitor", "turtle": [[{ "code": "L", "params": [-5, 0, -1, 0] }, { "code": "L", "params": [1, -4, 1, 4] }, { "code": "L", "params": [-1, -4, -1, 4] }, { "code": "L", "params": [1, 0, 5, 0] }], [{ "code": "L", "params": [0, -5, 0, -1] }, { "code": "L", "params": [4, 1, -4, 1] }, { "code": "L", "params": [4, -1, -4, -1] }, { "code": "L", "params": [0, 1, 0, 5] }], [{ "code": "L", "params": [5, 0, 1, 0] }, { "code": "L", "params": [-1, 4, -1, -4] }, { "code": "L", "params": [1, 4, 1, -4] }, { "code": "L", "params": [-1, 0, -5, 0] }], [{ "code": "L", "params": [0, 5, 0, 1] }, { "code": "L", "params": [-4, -1, 4, -1] }, { "code": "L", "params": [-4, 1, 4, 1] }, { "code": "L", "params": [0, -1, 0, -5] }]], "pins": [{ "PIN1": [2, 0], "PIN2": [-2, 0] }, { "PIN1": [0, 2], "PIN2": [0, -2] }, { "PIN1": [-2, 0], "PIN2": [2, 0] }, { "PIN1": [0, -2], "PIN2": [0, 2] }], "bounds": [[-2, -1.6, 2, 1.6], [-1.6, -2, 1.6, 2], [-2, -1.6, 2, 1.6], [-1.6, -2, 1.6, 2]] }, "3": { "typeId": 3, "abbr": "VT", "descr": "A transistor is a fundamental semiconductor device used to amplify or switch electrical signals and power, serving as a building block for modern electronics.", "name": "pnp transistor", "turtle": [[{ "code": "P", "params": [-1.55, 1.357, 0.17, 1.536, -0.66, 2.845, 2] }, { "code": "P", "params": [-1.55, 1.357, 2.5, 3.927, 2.5, 7.5, 0] }, { "code": "P", "params": [-1.55, -1.357, 2.5, -3.928, 2.5, -7.5, 0] }, { "code": "L", "params": [-7.5, 0, -1.55, 0] }, { "code": "L", "params": [-1.55, 3.103, -1.55, -3.103] }, { "code": "C", "params": [0, 0, 4.66] }], [{ "code": "P", "params": [-1.357, -1.55, -1.536, 0.17, -2.845, -0.66, 2] }, { "code": "P", "params": [-1.357, -1.55, -3.927, 2.5, -7.5, 2.5, 0] }, { "code": "P", "params": [1.357, -1.55, 3.928, 2.5, 7.5, 2.5, 0] }, { "code": "L", "params": [0, -7.5, 0, -1.55] }, { "code": "L", "params": [-3.103, -1.55, 3.103, -1.55] }, { "code": "C", "params": [0, 0, 4.66] }], [{ "code": "P", "params": [1.55, -1.357, -0.17, -1.536, 0.66, -2.845, 2] }, { "code": "P", "params": [1.55, -1.357, -2.5, -3.927, -2.5, -7.5, 0] }, { "code": "P", "params": [1.55, 1.357, -2.5, 3.928, -2.5, 7.5, 0] }, { "code": "L", "params": [7.5, 0, 1.55, 0] }, { "code": "L", "params": [1.55, -3.103, 1.55, 3.103] }, { "code": "C", "params": [0, 0, 4.66] }], [{ "code": "P", "params": [1.357, 1.55, 1.536, -0.17, 2.845, 0.66, 2] }, { "code": "P", "params": [1.357, 1.55, 3.927, -2.5, 7.5, -2.5, 0] }, { "code": "P", "params": [-1.357, 1.55, -3.928, -2.5, -7.5, -2.5, 0] }, { "code": "L", "params": [0, 7.5, 0, 1.55] }, { "code": "L", "params": [3.103, 1.55, -3.103, 1.55] }, { "code": "C", "params": [0, 0, 4.66] }]], "pins": [{ "PIN1": [1, -3], "PIN2": [-3, 0], "PIN3": [1, 3] }, { "PIN1": [3, 1], "PIN2": [0, -3], "PIN3": [-3, 1] }, { "PIN1": [-1, 3], "PIN2": [3, 0], "PIN3": [-1, -3] }, { "PIN1": [-3, -1], "PIN2": [0, 3], "PIN3": [3, -1] }], "bounds": [[-3, -3, 1.864, 3], [-3, -3, 3, 1.864], [-1.864, -3, 3, 3], [-3, -1.864, 3, 3]] }, "4": { "typeId": 4, "abbr": "VD", "descr": "A diode is a semiconductor device, typically made of silicon, that essentially acts as a one-way switch for current.", "name": "diode", "turtle": [[{ "code": "L", "params": [2.5, 2.5, 2.5, -2.5] }, { "code": "P", "params": [-2.5, -2.5, 2.5, 0, -2.5, 2.5, 1] }, { "code": "L", "params": [-5, 0, 5, 0] }], [{ "code": "L", "params": [-2.5, 2.5, 2.5, 2.5] }, { "code": "P", "params": [2.5, -2.5, 0, 2.5, -2.5, -2.5, 1] }, { "code": "L", "params": [0, -5, 0, 5] }], [{ "code": "L", "params": [-2.5, -2.5, -2.5, 2.5] }, { "code": "P", "params": [2.5, 2.5, -2.5, 0, 2.5, -2.5, 1] }, { "code": "L", "params": [5, 0, -5, 0] }], [{ "code": "L", "params": [2.5, -2.5, -2.5, -2.5] }, { "code": "P", "params": [-2.5, 2.5, 0, -2.5, 2.5, 2.5, 1] }, { "code": "L", "params": [0, 5, 0, -5] }]], "pins": [{ "PIN1": [2, 0], "PIN2": [-2, 0] }, { "PIN1": [0, 2], "PIN2": [0, -2] }, { "PIN1": [-2, 0], "PIN2": [2, 0] }, { "PIN1": [0, -2], "PIN2": [0, 2] }], "bounds": [[-2, -1, 2, 1], [-1, -2, 1, 2], [-2, -1, 2, 1], [-1, -2, 1, 2]] } }
@@ -243,7 +263,7 @@ gr.startIdx = coordsToFlat(gr, startPt);
 gr.goalIdx = coordsToFlat(gr, goalPt);
 const indexRoute = doAStar(gr);
 console.log(indexRoute);
-const coordsRoute = simplifyRoute(gr, indexRoute);
+const coordsRoute = collapseRoute(gr, indexRoute);
 console.log(coordsRoute);
 
 

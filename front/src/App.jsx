@@ -79,17 +79,9 @@ function App() {
         });
     }, []);
 
+    const onWiresChanged = useCallback((wires) => {
 
-    const onWireChanged = useCallback((wire, select) => {
-        setSchemaElements(prev => {
-            const newWires = { ...prev.wires, [wire.id]: wire };
-            // if (select) {                setSelected({ type: ObjectType.ELEMENT, elementId: elem.id });            }
-            return { ...prev, wires: newWires };
-        });
-
-
-
-
+        setSchemaElements(prev => ({ ...prev, wires: wires }))
 
     }, []);
 
@@ -140,7 +132,7 @@ function App() {
                     selectedChanged={(obj) => setSelected(obj)}
                     onElemChanged={onElemChanged}
                     onElemDeleted={onElemDeleted}
-                    onWireChanged={onWireChanged}
+                    onWiresChanged={onWiresChanged}
                 /></div>
 
 

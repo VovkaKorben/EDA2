@@ -184,7 +184,7 @@ export const rotatePrimitive = (prim, rotateIndex) => {
         return { 'code': prim.code, params: [] };
     }
 }
-
+export const isPointEqual = (pt1, pt2) => pt1[0] === pt2[0] && pt1[1] === pt2[1];
 
 export const LoadElems = async () => {
     const resp = await fetch(`${API_URL}library`);

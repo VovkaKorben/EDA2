@@ -7,6 +7,26 @@ export const GRID_SIZE = 2.5;
 
 export const adjustCtx = (v) => Math.round(v) + 0.5;
 export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
+
+export const drawWire = (ctx, path, width, color, parrotsToScreen) => {
+    ctx.fillStyle = color;
+
+    ctx.lineWidth = width / dpr;
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    path.forEach((pt, i) => {
+        let screenPos = parrotsToScreen(pt);
+        screenPos = adjustPoint(screenPos);
+        if (i === 0) {
+            ctx.moveTo(...screenPos);
+        } else {
+            ctx.lineTo(...screenPos);
+        }
+
+    });
+    ctx.stroke();
+}
+
 /**
  * Отрисовка сетки весов A* для отладки
  * @param {CanvasRenderingContext2D} ctx 
@@ -41,15 +61,15 @@ export const drawGridDebug = (ctx, grid, parrotsToScreen) => {
     ctx.restore();
 };
 
-export const drawElement = (elem, ctx) => {
+export const drawElement = (ctx, elem) => {
     ctx.save();
     try {
         // ctx.translate(Math.round(elem.pos.x), Math.round(elem.pos.y));
         // Округляем до целого физического пикселя, затем возвращаем в логику
         ctx.translate(Math.round(elem.pos[0] * dpr) / dpr, Math.round(elem.pos[1] * dpr) / dpr);
-        ctx.lineWidth = 1 / dpr;
-        ctx.strokeStyle = elem.drawColor;
-        ctx.fillStyle = elem.drawColor;
+        ctx.lineWidth = elem.width / dpr;
+        ctx.strokeStyle = elem.color;
+        ctx.fillStyle = elem.color;
 
         for (const prim of elem.turtle[elem.rotate]) {
 

@@ -1,13 +1,14 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
 import { ObjectType, DragModeType, DrawColor } from '../helpers/utils.js';
-import { drawElement, drawPins, drawName, adjustPoint, drawGridDebug, adjustCtx, GRID_SIZE, dpr } from '../helpers/draw.js';
+import { drawElement, drawPins, drawName, drawWire, adjustPoint, drawGridDebug, adjustCtx, GRID_SIZE, dpr } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
-import { clamp, addPoint, pointsDistance, transformRect, ptInRect, roundPoint } from '../helpers/geo.js';
-import { prettify, prettify_v2 } from '../helpers/debug.js';
-import { prepareAStarGrid, coordsToFlat, doAStar, simplifyRoute } from '../helpers/astar.js';
+import { clamp, addPoint, pointsDistance, transformRect, ptInRect, roundPoint, isPointEqual } from '../helpers/geo.js';
+import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
+import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath } from '../helpers/astar.js';
 
-const BOLD_EACH = 10;
+const GRID_BOLD_EACH = 10;
+const SELECT_TOLERANCE = 0.5;
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
 const _initZoom = 1;
 const DEFAULT_VIEW = {
@@ -27,12 +28,11 @@ const SchemaCanvas = forwardRef(({
     hoveredChanged, selectedChanged,
 
     onElemChanged, onElemDeleted,
-    onWireChanged
+    onWiresChanged
 }, ref) => {
 
     const canvasRef = useRef(null);
     const dragMode = useRef(DragModeType.NONE);
-    //useEffect(() => {        console.log(`dragMode: ${dragMode.current}`);    }, [dragMode.current]);
 
 
     const schemaRef = useRef(schemaElements);
@@ -76,7 +76,7 @@ const SchemaCanvas = forwardRef(({
         const parrotBounds = [x1, y1, x2, y2];
         aStarRef.current = prepareAStarGrid(parrotBounds, libElements, schemaElements);
         if (aStarRef.current) {
-            const startIdx = coordsToFlat(aStarRef.current, startCoords);
+            const startIdx = parrotsToFlat(aStarRef.current, startCoords);
             aStarRef.current = {
                 ...aStarRef.current,
                 startIdx: startIdx,
@@ -91,7 +91,7 @@ const SchemaCanvas = forwardRef(({
         if (!aStarRef.current) return;
 
         // get Goal-Flat-Index from mouse
-        const goalIdx = coordsToFlat(aStarRef.current, goalCoords);
+        const goalIdx = parrotsToFlat(aStarRef.current, goalCoords);
 
         // check goal is really changed
         if (aStarRef.current.goalIdx === goalIdx) return;
@@ -99,8 +99,11 @@ const SchemaCanvas = forwardRef(({
 
         // calc flat-indexes
         const indexRoute = doAStar(aStarRef.current);
+        console.log(prettify(indexRoute, 0));
+
         // convert flat-indexes to global-coords
-        const simpleRoute = simplifyRoute(aStarRef.current, indexRoute);
+        let simpleRoute = flatToParrots(aStarRef.current, indexRoute);
+        simpleRoute = collapseRoute(simpleRoute);
 
 
         // console.log(prettify(coordsRoute, 0));
@@ -131,10 +134,316 @@ const SchemaCanvas = forwardRef(({
     }, [view]);
     */
 
+    // ----------------------------------------         SELECTION
+    // -----------------------------------------------------------
+    // -----------------------------------------------------------
+    const getPinCoords = useCallback((obj) => {
+        const elem = schemaRef.current.elements[obj.elementId];
+        if (!elem) return null;
+        const lib = libElements[elem.typeId];
+        if (!lib) return null;
+
+        let pinCoords = lib.pins[elem.rotate][obj.pinIdx];
+        pinCoords = addPoint(elem.pos, pinCoords);
+        return pinCoords;
+
+    }, [libElements]);
+
+    const findPinAt = useCallback((checkPoint) => {
+        for (const elem of Object.values(schemaElements.elements)) {
+            const libElement = libElements[elem.typeId];
+            if (libElement) {
+                for (const [pinName, pinValue] of Object.entries(libElement.pins[elem.rotate])) {
+                    const pinCoords = addPoint(pinValue, elem.pos);
+                    const parrotDist = pointsDistance(pinCoords, checkPoint);
+                    if (parrotDist <= SELECT_TOLERANCE) {
+                        return {
+                            elementId: elem.id,
+                            pinIdx: pinName,
+                            // pinCoords: pinCoords
+                        };
+                    }
+                }
+            }
+        }
+        return null;
+    }, [libElements, schemaElements]);
+    const findElemAt = useCallback((checkPoint) => {
+        for (const elem of Object.values(schemaElements.elements)) {
+            const libElement = libElements[elem.typeId];
+            if (libElement) {
+                const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
+                if (ptInRect(elemRect, checkPoint)) {
+                    return { elementId: elem.id };
+                }
+            }
+        }
+        return null;
+    }, [libElements, schemaElements]);
+
+    const findWireAt = useCallback((checkPoint) => {
+        const [mx, my] = checkPoint;
+        for (const wire of Object.values(schemaElements.wires)) {
+            for (let i = 0; i < wire.path.length - 1; i++) {
+                const [x1, y1] = wire.path[i];
+                const [x2, y2] = wire.path[i + 1];
+                // Позиция мыши в попугаях
+
+                // Если это горизонтальный сегмент (y одинаковый)
+                if (y1 === y2) {
+                    if (Math.abs(my - y1) < SELECT_TOLERANCE &&
+                        mx >= Math.min(x1, x2) - SELECT_TOLERANCE &&
+                        mx <= Math.max(x1, x2) + SELECT_TOLERANCE) {
+                        return { type: ObjectType.WIRE, wireId: wire.id, pos: [Math.round(mx), y1] };
+                    }
+                }
+                // Если это вертикальный сегмент (x одинаковый)
+                else if (x1 === x2) {
+                    if (Math.abs(mx - x1) < SELECT_TOLERANCE &&
+                        my >= Math.min(y1, y2) - SELECT_TOLERANCE &&
+                        my <= Math.max(y1, y2) + SELECT_TOLERANCE) {
+                        return { type: ObjectType.WIRE, wireId: wire.id, pos: [x1, Math.round(my)] };
+                    }
+                }
+            }
+        }
+        return null;
+    }, [schemaElements]);
 
 
 
-    // DRAW ---------------------------------------------------------
+    const getObjectUnderCursor = useCallback((pt) => {
+        const pinCheck = findPinAt(pt);
+        if (pinCheck !== null)
+            return { type: ObjectType.PIN, ...pinCheck };
+        const elemCheck = findElemAt(pt);
+        if (elemCheck !== null)
+            return { type: ObjectType.ELEMENT, ...elemCheck };
+        const wireCheck = findWireAt(pt);
+        if (wireCheck !== null)
+            return { type: ObjectType.WIRE, ...wireCheck };
+        //{ type: 'WIRE', wireId: 505 }
+        return { type: ObjectType.NONE };
+
+    }, [findPinAt, findElemAt, findWireAt]);
+
+
+    // ----------------------------------------         WIRES
+    // -----------------------------------------------------------
+    // -----------------------------------------------------------
+    const getNewWireId = () => {
+        const existingIDs = Object.keys(schemaRef.current.wires).map(v => +v);
+        let newID = 0;
+        while (existingIDs.includes(newID)) {
+            newID++;
+        };
+        return newID;
+
+    }
+
+    const deleteWire = useCallback((wireId) => {
+        // проверяем сторону провода
+        const checkConn = (conn) => {
+            // если на конце был пин элемента - то выходим, т.к. на пин может приходить только 1 провод
+            if (conn.type === ObjectType.PIN) return;
+
+            // проверяем, были ли провода, с таким же концом
+            const sameConn = [];
+            schemaRef.current.wires.forEach(wireToCheck => {
+                if (wireToCheck.source.type === ObjectType.TCONN && isPointEqual(conn.pos, wireToCheck.source.pos)) {
+                    sameConn.push({
+                        wireId: wireToCheck.wireId,
+                        conn: wireToCheck.target
+                    });
+                }
+                if (wireToCheck.target.type === ObjectType.TCONN && isPointEqual(conn.pos, wireToCheck.target.pos)) {
+                    sameConn.push({
+                        wireId: wireToCheck.wireId,
+                        conn: wireToCheck.source
+                    });
+                }
+
+            });
+
+
+
+        }
+
+        const wire = schemaRef.current.wires[wireId];
+        if (!wire) return;
+        // удаляем провод сразу, чтобы он не участовал
+        delete schemaRef.current.wires[wireId];
+
+        // для обоих концов: если у нас т-конн
+        // 1. запоминаем в массиве все айди проводов с таким же концом
+        // 2. если у нас там 3 провода - ничего не трогаем (т.е. до этого было соединение из 4 проводов)
+        // 3. если 2 провода - находим их другие края, запоминаем
+        // 4. удаляем эти два провода, делаем один новый с краяим из п.3
+        // для обоих концов: у нас ОБА не т-конн
+        // 1. просто удаляем провод
+        checkConn(wire.source);
+        checkConn(wire.target);
+
+        //if (wireId in schemaRef.current.wires)        onElemDeleted(selectedRef.current.elementId);
+        selectedChanged({ type: ObjectType.NONE });
+        // selectedChanged(null);
+        onWiresChanged({ ...schemaRef.current.wires });
+
+    }, [selectedChanged, onWiresChanged]);
+
+    const createWire = useCallback((source, target) => {
+        console.log(source);
+        console.log(target);
+
+
+        let wireId, newWire;
+        if (target.type === ObjectType.WIRE) { // target are WIRE
+
+            pprint(target)
+            //const otherSide = source.type === ObjectType.WIRE ?
+
+            const targetWire = { ...schemaRef.current.wires[target.wireId] } //запоминаем текущий сегмент
+            pprint(targetWire)
+            delete schemaRef.current.wires[target.wireId]; //удаляем его
+
+
+            // режем старый провод по соединению
+            let oldWirePath = targetWire.path;
+            oldWirePath = expandPath(oldWirePath);
+            const oldPaths = splitPath(oldWirePath, target.pos);
+            const oldPath1 = collapseRoute(oldPaths[0]);
+            const oldPath2 = collapseRoute(oldPaths[1]);
+
+
+            // добавляем ТРИ новых сегмента
+            const targetTCONN = {
+                type: ObjectType.TCONN,
+                pos: target.pos
+            }
+            // - от старой точки1 до новой на проводе
+            wireId = getNewWireId();
+            const oldWire1 = {
+                id: wireId,
+                source: targetWire.source,
+                target: targetTCONN,
+                path: oldPath1
+            }
+            schemaRef.current.wires[wireId] = oldWire1;
+            // - от старой точки2 до новой на проводе
+            wireId = getNewWireId();
+            const oldWire2 = {
+                id: wireId,
+                source: targetWire.target,
+                target: targetTCONN,
+                path: oldPath2
+            }
+            schemaRef.current.wires[wireId] = oldWire2;
+
+            // - и собсно новый провод
+            wireId = getNewWireId();
+            newWire = {
+                id: wireId,
+                source: source,
+                target: targetTCONN,
+                path: activeRoute
+            }
+            schemaRef.current.wires[wireId] = newWire;
+
+
+
+        } else { // PIN/TCONN to PIN/TCONN connection
+            wireId = getNewWireId();
+            newWire = {
+                id: wireId,
+                source: source,
+                target: target,
+                path: activeRoute
+            }
+            schemaRef.current.wires[wireId] = newWire;
+
+        }
+        onWiresChanged({ ...schemaRef.current.wires });
+        selectedChanged({
+            type: ObjectType.WIRE,
+            wireId: newWire.id
+        });
+    }, [activeRoute, onWiresChanged, selectedChanged]);
+
+    // ----------------------------------------         MOUSE DOWN
+    // -----------------------------------------------------------
+    // -----------------------------------------------------------
+    const handleMouseDown = useCallback((e) => {
+        // return;
+        if (e.button !== DRAG_BUTTON) return;
+        const pt = screenToParrots(e.clientX, e.clientY);
+        //const obj = { type: ObjectType.NONE }
+        const obj = getObjectUnderCursor(pt);
+
+
+        switch (dragMode.current) {
+
+
+            case DragModeType.ROUTING: {
+                switch (obj.type) {
+
+                    case ObjectType.PIN:
+                    case ObjectType.WIRE: {
+                        createWire(selected, obj);
+                        dragMode.current = DragModeType.NONE;
+
+                        break;
+                    }
+
+
+                }
+                break;
+            }
+            case DragModeType.NONE: {
+                selectedChanged(obj);
+                switch (obj.type) {
+                    case ObjectType.ELEMENT:
+                        {
+                            dragMode.current = DragModeType.ELEMENT;
+                            const elem = schemaRef.current.elements[obj.elementId];
+                            // Запоминаем стартовую позицию мыши и элемента
+                            lastPos.current = {
+                                startX: e.clientX,
+                                startY: e.clientY,
+                                elemStartX: elem.pos[0],
+                                elemStartY: elem.pos[1]
+                            }; break;
+                        }
+
+                    case ObjectType.PIN: {
+                        const pinCoords = getPinCoords(obj);
+                        const resultInitAStar = initAStar(pinCoords);
+                        if (resultInitAStar) dragMode.current = DragModeType.ROUTING;
+                        // lastPos.current = { x: e.clientX, y: e.clientY };
+                        break;
+                    };
+
+                    case ObjectType.NONE: {
+                        dragMode.current = DragModeType.SCROLL;
+                        // Запоминаем стартовую позицию мыши и камеры
+                        lastPos.current = {
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            parrotStartX: viewRef.current.x,
+                            parrotStartY: viewRef.current.y
+                        };
+                        break;
+                    };
+
+                };
+                break;
+            }
+        }
+    }, [screenToParrots, getObjectUnderCursor, selectedChanged, initAStar, selected, createWire, getPinCoords]);
+
+
+    // ----------------------------------------         DRAW
+    // -----------------------------------------------------------
+    // -----------------------------------------------------------
     const drawAll = useCallback(() => {
 
         const pinToCoords = (pin) => {
@@ -160,7 +469,7 @@ const SchemaCanvas = forwardRef(({
                 ctx.strokeStyle = '#00000015'; // Сделала чуть прозрачнее для 2.5мм
                 let currentParrot = parrotX;
                 for (let x = startX; x < canvas.width; x += view.interval) {
-                    if (currentParrot % BOLD_EACH) {
+                    if (currentParrot % GRID_BOLD_EACH) {
                         const ax = adjustCtx(x);
                         ctx.moveTo(ax, 0);
                         ctx.lineTo(ax, canvas.height);
@@ -169,7 +478,7 @@ const SchemaCanvas = forwardRef(({
                 }
                 currentParrot = parrotY;
                 for (let y = startY; y < canvas.height; y += view.interval) {
-                    if (currentParrot % BOLD_EACH) {
+                    if (currentParrot % GRID_BOLD_EACH) {
                         const ay = adjustCtx(y);
                         ctx.moveTo(0, ay);
                         ctx.lineTo(canvas.width, ay);
@@ -184,7 +493,7 @@ const SchemaCanvas = forwardRef(({
                 ctx.strokeStyle = '#00000035'; // Сделала чуть прозрачнее для 2.5мм
                 currentParrot = parrotX;
                 for (let x = startX; x < canvas.width; x += view.interval) {
-                    if (!(currentParrot % BOLD_EACH)) {
+                    if (!(currentParrot % GRID_BOLD_EACH)) {
                         const ax = adjustCtx(x);
                         ctx.moveTo(ax, 0);
                         ctx.lineTo(ax, canvas.height);
@@ -193,7 +502,7 @@ const SchemaCanvas = forwardRef(({
                 }
                 currentParrot = parrotY;
                 for (let y = startY; y < canvas.height; y += view.interval) {
-                    if (!(currentParrot % BOLD_EACH)) {
+                    if (!(currentParrot % GRID_BOLD_EACH)) {
                         const ay = adjustCtx(y);
                         ctx.moveTo(0, ay);
                         ctx.lineTo(canvas.width, ay);
@@ -210,34 +519,84 @@ const SchemaCanvas = forwardRef(({
         }
         const drawWires = () => {
 
-            const tconn = new Set();
-            ctx.beginPath();
-            Object.values(schemaElements.wires).forEach(wire => {// each element on schematic
-                // console.log(prettify(wire, 1));
+            // draw outline under hovered
+            if (hovered.type === ObjectType.WIRE && dragMode.current !== DragModeType.ROUTING) {
+                const wireToHover = schemaElements.wires[hovered.wireId];
+                if (wireToHover) {
+                    drawWire(ctx, wireToHover.path, 3, DrawColor.HOVERED, parrotsToScreen);
+                }
+
+
+            }
+
+            // t-conn storage
+            const tconn = [];
+
+            // iterate wires
+            Object.values(schemaElements.wires).forEach(wire => {
                 // for T-connectors store circles positions
-                if (wire.source.type === ObjectType.TCONN) { tconn.add(1); }
-                if (wire.target.type === ObjectType.TCONN) { tconn.add(1); }
+                if (wire.source.type === ObjectType.TCONN) {
+                    if (tconn.findIndex(n => isPointEqual(n, wire.source.pos) === -1))
+                        tconn.push(wire.source.pos);
+                }
+                if (wire.target.type === ObjectType.TCONN) {
+                    if (tconn.findIndex(n => isPointEqual(n, wire.target.pos) === -1))
+                        tconn.push(wire.target.pos);
+                }
 
-
-
-                ctx.strokeStyle = 'black';
-                wire.path.forEach((pt, i) => {
-                    let screenPos = parrotsToScreen(pt);
-                    screenPos = adjustPoint(screenPos);
-                    if (i === 0) {
-                        ctx.moveTo(...screenPos);
-                    } else {
-                        ctx.lineTo(...screenPos);
-                    }
-
-                });
-
-
+                const drawColor = (selected?.type === ObjectType.WIRE && wire.id === selected.wireId) ?
+                    DrawColor.SELECTED : DrawColor.NORMAL;
+                drawWire(ctx, wire.path, 1, drawColor, parrotsToScreen);
             });
-            ctx.stroke();
+            // t-conn circles
+            ctx.lineWidth = 1; ctx.fillStyle = DrawColor.NORMAL;
+            ctx.beginPath();
+            tconn.forEach(pt => ctx.arc(...parrotsToScreen(pt), 5, 0, 2 * Math.PI));
+            ctx.fill();
 
         };
+        const drawElements = () => {
 
+            // draw outline under hovered
+            if (hovered.type === ObjectType.ELEMENT && dragMode.current !== DragModeType.ROUTING) {
+                const elem = schemaElements.elements[hovered.elementId];
+                if (!elem) return;
+                const lib = libElements[elem.typeId];
+                if (!lib) return;
+
+                const toDraw = {
+                    ...lib,
+                    pos: parrotsToScreen(elem.pos),
+                    zoom: view.zoom,
+                    rotate: elem.rotate,
+                    typeIndex: elem.typeIndex,
+                    color: DrawColor.HOVERED,
+                    width: 3
+                }
+                drawElement(ctx, toDraw);
+            }
+
+            Object.values(schemaElements.elements).forEach(elem => {
+                const libElement = libElements[elem.typeId];
+                if (libElement) {
+                    const drawColor = (selected?.type === ObjectType.ELEMENT && selected.elementId === elem.id) ?
+                        DrawColor.SELECTED : DrawColor.NORMAL
+
+                    const toDraw = {
+                        ...libElement,
+                        pos: parrotsToScreen(elem.pos),
+                        zoom: view.zoom,
+                        rotate: elem.rotate,
+                        typeIndex: elem.typeIndex,
+                        color: drawColor,
+                        width: 1
+                    };
+                    drawElement(ctx, toDraw);
+                    drawPins(toDraw, ctx);
+                    drawName(toDraw, ctx);
+                }
+            });
+        }
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -248,87 +607,46 @@ const SchemaCanvas = forwardRef(({
 
         // background grid
         drawGrid();
-
-        // elementes
-        Object.values(schemaElements.elements).forEach(elem => {// each element on schematic
-        // Рисуем сетку А*, если мы в режиме роутинга
-        if (dragMode.current === DragModeType.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, GlobalToScreen); }
-
-        // Подсветка пинов и узлов (PIN / TCONN) 
-        if (hovered.type === ObjectType.PIN || hovered.type === ObjectType.TCONN) {
-            let drawPoint;
-            if (hovered.type === ObjectType.PIN) {
-                drawPoint = pinToCoords(hovered);
-
-            } else if (hovered.type === ObjectType.TCONN) {
-                //
-            }
-            drawPoint = GlobalToScreen(drawPoint);
-            ctx.lineWidth = 1; ctx.fillStyle = DrawColor.HOVERED;
-            ctx.beginPath();
-            ctx.arc(...drawPoint, 5, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-
-        // Отрисовка проводов (существующих)
-        schemaElements.wires.forEach(wire => {
-            let isHovered = (hovered.type === ObjectType.WIRE && hovered.wireId === wire.id);
-            // Рисуем линию. Если isHovered — делаем её толще или ярче.
-        });
-
-        // Отрисовка элементов и их пинов
-        Object.values(schemaElements.elements).forEach(elem => {
-            const libElement = libElements[elem.typeId];
-            if (libElement) {
-
-
-                let drawColor = DrawColor.NONE;
-
-                if (hovered.type === ObjectType.ELEMENT && elem.id === hovered.elementId)
-                    drawColor = DrawColor.HOVERED;
-                if (selected.type === ObjectType.ELEMENT && elem.id === selected.elementId)
-                    drawColor = DrawColor.SELECTED;
-
-
-                const toDraw = {
-                    ...libElement,
-                    pos: parrotsToScreen(elem.pos),
-                    zoom: view.zoom,
-                    rotate: elem.rotate,
-                    typeIndex: elem.typeIndex,
-                    drawColor: drawColor
-                };
-                drawElement(toDraw, ctx);
-                drawPins(toDraw, ctx);
-                drawName(toDraw, ctx);
-            }
-        });
-
-        // wires
+        drawElements();
         drawWires();
 
 
-        if (activeRoute) {
-            ctx.beginPath();
-            try {
-                activeRoute.forEach((pt, i) => {
-                    const screenPt = parrotsToScreen(pt);
-                    const adjusted = adjustPoint(screenPt);
-
-                    if (i === 0) {
-                        ctx.moveTo(...adjusted);
-                    } else {
-                        ctx.lineTo(...adjusted);
-                    }
 
 
-                })
-            } finally {
-                ctx.stroke();
+
+        if (dragMode.current === DragModeType.ROUTING && aStarRef.current) {
+            // Рисуем сетку А*, если мы в режиме роутинга
+            //drawGridDebug(ctx, aStarRef.current, parrotsToScreen);
+
+            // текущий путь
+            if (activeRoute) {
+                ctx.beginPath();
+                try {
+                    activeRoute.forEach((pt, i) => {
+                        const screenPt = parrotsToScreen(pt);
+                        const adjusted = adjustPoint(screenPt);
+                        if (i === 0) {
+                            ctx.moveTo(...adjusted);
+                        } else {
+                            ctx.lineTo(...adjusted);
+                        }
+                    })
+                } finally {
+                    ctx.stroke();
+                }
+            }
+
+            // кружок прилипания
+            if (hovered.type === ObjectType.WIRE) {
+                const snapCoords = parrotsToScreen(hovered.pos); // hovered.pos уже содержит точку стыка из findWireAt
+
+                ctx.lineWidth = 1;
+                ctx.fillStyle = DrawColor.HOVERED;
+                ctx.beginPath();
+                ctx.arc(...snapCoords, 5, 0, 2 * Math.PI); // Рисуем такой же кружок, как у пина
+                ctx.fill();
             }
         }
-        // Рисуем сетку А*, если мы в режиме роутинга
-        if (dragMode.current === DragModeType.ROUTING && aStarRef.current) { drawGridDebug(ctx, aStarRef.current, parrotsToScreen); }
 
         // if 
         if (hovered.type === ObjectType.PIN) {
@@ -349,7 +667,7 @@ const SchemaCanvas = forwardRef(({
 
 
 
-    }, [libElements, schemaElements, hovered, selected, view, activeRoute]);
+    }, [libElements, schemaElements, hovered, view, activeRoute, selected]);
     const drawRef = useRef(drawAll);
     useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
 
@@ -399,11 +717,20 @@ const SchemaCanvas = forwardRef(({
                 case 'KeyR': rotateElement(false); break;
                 case 'KeyT': rotateElement(true); break;
                 case 'Delete': {
-                    if (dragMode.current === DragModeType.NONE && selectedRef.current.type === ObjectType.ELEMENT) {
-                        selectedChanged({ type: ObjectType.NONE });
-                        onElemDeleted(selectedRef.current.elementId);
+                    if (dragMode.current === DragModeType.NONE) {
+                        switch (selectedRef.current.type) {
+                            case ObjectType.ELEMENT:
+                                selectedChanged({ type: ObjectType.NONE });
+                                onElemDeleted(selectedRef.current.elementId);
+                                break;
+                            case ObjectType.WIRE:
+                                deleteWire(selectedRef.current.wireId);
+                                break;
+                        }
                     }
-                } break;
+
+                }
+                    break;
 
                 case 'Digit1':
                     //       console.log(prettify(aStarRef.current, 1)); break;
@@ -419,7 +746,7 @@ const SchemaCanvas = forwardRef(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged, onElemDeleted, selectedChanged]);
+    }, [onElemChanged, onElemDeleted, selectedChanged, deleteWire]);
 
 
     // WHEEL -------------------------------------------------------------------
@@ -482,219 +809,6 @@ const SchemaCanvas = forwardRef(({
         e.preventDefault();
     };
 
-    const getPinCoords = (obj) => {
-        const elem = schemaRef.current.elements[obj.elementId];
-        if (!elem) return null;
-        const lib = libElements[elem.typeId];
-        if (!lib) return null;
-
-        let pinCoords = lib.pins[elem.rotate][obj.pinIdx];
-        pinCoords = addPoint(elem.pos, pinCoords);
-        return pinCoords;
-
-    }
-
-    const findPinAt = useCallback((checkPoint) => {
-        for (const elem of Object.values(schemaElements.elements)) {
-            const libElement = libElements[elem.typeId];
-            if (libElement) {
-                for (const [pinName, pinValue] of Object.entries(libElement.pins[elem.rotate])) {
-                    const pinCoords = addPoint(pinValue, elem.pos);
-                    const parrotDist = pointsDistance(pinCoords, checkPoint);
-                    if (parrotDist <= 0.5) {
-                        return {
-                            elementId: elem.id,
-                            pinIdx: pinName,
-                            // pinCoords: pinCoords
-                        };
-                    }
-                }
-            }
-        }
-        return null;
-    }, [libElements, schemaElements]);
-    const findElemAt = useCallback((checkPoint) => {
-        for (const elem of Object.values(schemaElements.elements)) {
-            const libElement = libElements[elem.typeId];
-            if (libElement) {
-                const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
-                if (ptInRect(elemRect, checkPoint)) {
-                    return { elementId: elem.id };
-                }
-            }
-        }
-        return null;
-    }, [libElements, schemaElements]);
-
-    const getObjectUnderCursor = useCallback((pt) => {
-        const pinCheck = findPinAt(pt);
-        if (pinCheck !== null)
-            return { type: ObjectType.PIN, ...pinCheck };
-        const elemCheck = findElemAt(pt);
-        if (elemCheck !== null)
-            return { type: ObjectType.ELEMENT, ...elemCheck };
-        //{ type: 'WIRE', wireId: 505 }
-        return { type: ObjectType.NONE };
-
-    }, [findPinAt, findElemAt]);
-
-    const connect_wire = (start, target) => {
-        console.log(start);
-        console.log(target);
-
-        // get integer IDs
-        const existingIDs = Object.keys(schemaRef.current.wires).map(v => +v);
-        let newID = 0;
-        while (existingIDs.includes(newID)) {
-            newID++;
-        };
-
-        if (start.type === ObjectType.WIRE || target.type === ObjectType.WIRE) { // one of ends are WIRE
-
-
-
-        } else { // PIN to PIN connection
-            const newWire = {
-                id: newID,
-                source: start,
-                target: target,
-                path: activeRoute
-            }
-            onWireChanged(newWire, true);
-
-        // current mode is routing
-        if (dragMode.current === DragModeType.ROUTING) {
-            switch (obj.type) {
-
-                // connected to pin
-                case ObjectType.PIN: {
-                    // create wire between   aStarRef.current.startObject and obj
-                    schemaRef.current
-                    
-                    aStarRef.current. 
-                    startObject
-                    // schemaRef.current
-
-
-
-                    dragMode.current = DragModeType.NONE;
-                    setActiveRoute(null);
-                }
-
-            }
-        }
-        else {
-
-            switch (obj.type) {
-                case ObjectType.ELEMENT:
-                    {
-                        dragMode.current = DragModeType.ELEMENT;
-                        const elem = schemaRef.current.elements[obj.elementId];
-                        // Запоминаем стартовую позицию мыши и элемента
-                        lastPos.current = {
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            elemStartX: elem.pos[0],
-                            elemStartY: elem.pos[1]
-                        }; break;
-                    }
-
-                case ObjectType.PIN: {
-                    const resultInitAStar = initAStar(obj.pinCoords);
-                    if (resultInitAStar) {
-                        aStarRef.current.startObject = obj;
-                        dragMode.current = DragModeType.ROUTING;
-                    }
-                }; break;
-
-                case ObjectType.NONE: {
-                    dragMode.current = DragModeType.SCROLL;
-                    // Запоминаем стартовую позицию мыши и камеры
-                    lastPos.current = {
-                        startX: e.clientX,
-                        startY: e.clientY,
-                        viewStartX: viewRef.current.x,
-                        viewStartY: viewRef.current.y
-                    };
-                }; break;
-            }
-        }
-
-
-    }
-
-    // ----------------------------------------         MOUSE DOWN
-    // -----------------------------------------------------------
-    // -----------------------------------------------------------
-    const handleMouseDown = useCallback((e) => {
-        // return;
-        if (e.button !== DRAG_BUTTON) return;
-        const pt = screenToParrots(e.clientX, e.clientY);
-        //const obj = { type: ObjectType.NONE }
-        const obj = getObjectUnderCursor(pt);
-
-
-        switch (dragMode.current) {
-
-
-            case DragModeType.ROUTING: {
-                switch (obj.type) {
-
-                    case ObjectType.PIN:
-                    case ObjectType.WIRE: {
-                        connect_wire(selected, obj);
-                        dragMode.current = DragModeType.NONE;
-
-                        break;
-                    }
-
-
-                }
-                break;
-            }
-            case DragModeType.NONE: {
-                selectedChanged(obj);
-                switch (obj.type) {
-                    case ObjectType.ELEMENT:
-                        {
-                            dragMode.current = DragModeType.ELEMENT;
-                            const elem = schemaRef.current.elements[obj.elementId];
-                            // Запоминаем стартовую позицию мыши и элемента
-                            lastPos.current = {
-                                startX: e.clientX,
-                                startY: e.clientY,
-                                elemStartX: elem.pos[0],
-                                elemStartY: elem.pos[1]
-                            }; break;
-                        }
-
-                    case ObjectType.PIN: {
-                        const pinCoords = getPinCoords(obj);
-                        const resultInitAStar = initAStar(pinCoords);
-                        if (resultInitAStar) dragMode.current = DragModeType.ROUTING;
-                        // lastPos.current = { x: e.clientX, y: e.clientY };
-                        break;
-                    };
-
-                    case ObjectType.NONE: {
-                        dragMode.current = DragModeType.SCROLL;
-                        // Запоминаем стартовую позицию мыши и камеры
-                        lastPos.current = {
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            parrotStartX: viewRef.current.x,
-                            parrotStartY: viewRef.current.y
-                        };
-                        break;
-                    };
-
-                };
-                break;
-            }
-        }
-    }, [screenToParrots, getObjectUnderCursor, selectedChanged, initAStar, activeRoute, selected]);
-
-
 
     // ----------------------------------------         MOUSE MOVE
     // -----------------------------------------------------------
@@ -702,10 +816,9 @@ const SchemaCanvas = forwardRef(({
     const handleMouseMove = (e) => {
 
         const pt = screenToParrots(e.clientX, e.clientY);
-        if (dragMode.current === DragModeType.NONE) {
-            hoveredChanged(obj);
-            return;
-        }
+        const obj = getObjectUnderCursor(pt);
+        hoveredChanged(obj);
+        //if(dragMode.current === DragModeType.NONE) { return;        }
 
         // DEBUG
         const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -714,7 +827,7 @@ const SchemaCanvas = forwardRef(({
         // DEBUG END
 
         const { startX, startY } = lastPos.current;
-        const { interval, zoom } = viewRef.current;
+        const { interval } = viewRef.current;
         switch (dragMode.current) {
             case DragModeType.SCROLL: {
                 const { parrotStartX, parrotStartY } = lastPos.current;
@@ -741,8 +854,9 @@ const SchemaCanvas = forwardRef(({
             }
 
             case DragModeType.ROUTING: {
-                const roundedTarget = roundPoint(pt);
-                routeAStar(roundedTarget);
+                // const roundedTarget = roundPoint(pt);
+                const targetPos = (obj.type === ObjectType.WIRE) ? obj.pos : roundPoint(pt);
+                routeAStar(targetPos);
                 break;
             }
         }
