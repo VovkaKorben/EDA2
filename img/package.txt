@@ -1,0 +1,11 @@
+https://docs.google.com/spreadsheets/d/10kRVzBfbOroN1yhdpIs436UBzXbtdZoyqXNvCjBqb3s/edit?gid=530586109#gid=530586109
+
+Элемент,Маркировка (Европа),Тип корпуса (Footprint),Размеры / Шаг выводов (Pitch),Распиновка (Pinout)
+VT1,BC547C,TO-92,Шаг 1.27 мм (или 2.54 мм формованный),"1-Collector, 2-Base, 3-Emitter"
+R1,Bourns PTV09,Potentiometer 9mm,Шаг 2.5 мм; 3 вывода в ряд,"1-CCW, 2-Wiper, 3-CW"
+R2,Generic 0.25W,Axial-0.4,Длина 6.3 мм; Шаг (Pitch) 10.16 мм,Полярность отсутствует
+"C1, C3, C5",Ceramic Disc,C050-025X075,Диаметр 5 мм; Шаг (Pitch) 5.08 мм,Полярность отсутствует
+C2,PVC-2L20T,Polyvaricon,20x20 мм; 3-4 вывода снизу,Зависит от секции (AM/FM)
+C4,Radial E-Cap,CPOL-RADIAL,Диаметр 5 мм; Шаг (Pitch) 2.0-2.54 мм,"1-Anode (+), 2-Cathode (-)"
+"B1, G1",Screw Terminal,AK300/2,Шаг (Pitch) 5.08 мм,"Контакты 1, 2"
+"S1, S2",SS12D07,Slide Switch,Шаг 2.0-2.54 мм,SPDT (3 пина)

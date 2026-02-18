@@ -124,7 +124,7 @@ export const drawElement = (ctx, elem) => {
                     switch (style) {
                         case 0: ctx.stroke(); break; // 0 polyline
                         case 1: ctx.closePath(); ctx.stroke(); break;// 1 polygon
-                        case 2: ctx.closePath(); ctx.fill(); break;  // 2 filled polygon
+                        case 2: ctx.closePath(); ctx.stroke(); ctx.fill(); break;  // 2 filled polygon
                     }
 
                 } break;

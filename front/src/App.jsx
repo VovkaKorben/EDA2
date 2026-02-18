@@ -18,7 +18,7 @@ const defaultSchemaElements = {
 };
 
 function App() {
-
+    const [errorList, setErrorList] = useState([]);
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
 
@@ -28,9 +28,13 @@ function App() {
     const [libElements, setLibElements] = useState([]);
     useEffect(() => {
         const loadElems = async () => {
-            const loadedElems = await LoadElems();
+            //const loadedElems =
+            const elems = {};
+            const errors = [];
+            await LoadElems(elems, errors);
+            setErrorList(prev => [...prev, ...errors]);
             // console.log('loadedElems: ' + prettify(loadedElems, 1));
-            setLibElements(loadedElems);
+            setLibElements(elems);
         }
         loadElems();
 
@@ -71,7 +75,7 @@ function App() {
             case 3: refSchemaCanvas.current?.resetView(); break;
             case 4:
 
-                console.log(prettify(libElements, 0));
+                // console.log(prettify(libElements, 0));
                 console.log(prettify(schemaElements, 3));
                 break;
         }
@@ -116,16 +120,18 @@ function App() {
                     libs={libElements}
                 />
             </div>
-            <div className="elem-schema">
-                <ElementsList
-                    schemaElements={schemaElements.elements}
-                    libElements={libElements}
-                    hovered={hovered}
-                    selected={selected}
+
+            <ElementsList
+                schemaElements={schemaElements.elements}
+                libElements={libElements}
+                hovered={hovered}
+                selected={selected}
 
 
-                />
-            </div>
+                hoveredChange={(obj) => setHovered(obj)}
+                selectedChange={(obj) => setSelected(obj)}
+            />
+
             <div className="schema">
                 <SchemaCanvas
                     ref={refSchemaCanvas}
@@ -142,9 +148,15 @@ function App() {
                     onElemDeleted={onElemDeleted}
                     onWiresChanged={onWiresChanged}
                 /></div>
+            <div className="error-list">
+                {
+                    errorList.map((e, i) => {
 
+                        return <div key={i}>{e}</div>
+                    })
+                }
 
-
+            </div>
 
 
         </>

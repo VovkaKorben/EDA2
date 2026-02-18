@@ -1,19 +1,115 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { prettify } from '../helpers/debug.js';
+import { ObjectType } from '../helpers/utils.js';
+import '../css/ElementList.css'
+
+const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange }) => {
+
+    const [selectVisible, setSelectVisible] = useState(false);
+
+    const classCollect = ['elements-entry', 'frsc'];
+    if (selected.type === ObjectType.ELEMENT && selected.elementId === elem.id)
+        classCollect.push('elements-entry-selected');
+    if (hovered.type === ObjectType.ELEMENT && hovered.elementId === elem.id)
+        classCollect.push('elements-entry-hovered');
+    const mergedClass = classCollect.join(' ');
+
+    let packageDisplay;
+    if (selectVisible) {
+        // show package selector
+
+        packageDisplay =
+            <React.Fragment>
+                <select className='package-select'>
+                    {
+                        Object.entries(elem.packages).map(p => {
+
+                            return <option
+                                key={p[0]}
+                                value={p[0]}>
+                                {p[1]}
+                            </option>
+                        })
+                    }
 
 
 
-const ElementsList = ({ schemaElements, libElements, selected, hovered }) => {
+                </select>
+                <img
+                    src="./ok.svg"
+                    onClick={() => setSelectVisible(false)}
+                />
+            </React.Fragment>;
 
+    } else {
+        // show selected package
+        if (elem.package) {
+            packageDisplay = '2';
+        } else {
+            // no package
+            packageDisplay =
+                <span className='dimmed' onClick={() => setSelectVisible(true)}>no package</span>
+        }
+    }
+
+    /*  {selectVisible ?
+    
+                   
+                   
+    
+                    : (
+                        elem.package ?
+                           
+                            'selected' :
+                           
+    
+                    )
+    
+                }*/
+
+    return <div
+        className={mergedClass}
+        onMouseEnter={() => hoveredChange({ type: ObjectType.ELEMENT, elementId: elem.id })}
+        onMouseLeave={() => hoveredChange({ type: ObjectType.NONE })}
+        onClick={() => selectedChange(({ type: ObjectType.ELEMENT, elementId: elem.id }))}
+    >
+        <div> {elem.abbr}{elem.typeIndex}</div>
+        <div className='package-selector frcc'>{packageDisplay}</div>
+    </div>;
+}
+
+
+const ElementsList = ({ schemaElements, libElements, selected, hovered, selectedChange, hoveredChange }) => {
+    // exit, if library not loaded -
+    if (!libElements) return;
+    if (Object.keys(libElements).length === 0) return;
+
+    // combine properties from lib and schema
+    const elemList = Object.values(schemaElements).map(elem => {
+        let e = { ...elem };
+        const lib = libElements[elem.typeId];
+        if (lib) e = { ...e, ...lib };
+        return e;
+    });
+
+    // sort by types
+    elemList.sort((a, b) => {
+        const charCompare = a.abbr.localeCompare(b.abbr);
+        return charCompare !== 0 ? charCompare : a.typeIndex - b.typeIndex;
+    });
 
 
     return (
-        <React.Fragment>
-
-            {Object.values(schemaElements).map((e) => {
-                return <div key={e.id} className='elements-list'>
-                    {libElements[e.typeId] ? (libElements[e.typeId].abbr + e.typeIndex) : `Lib error, no ID ${e.typeId}`}
-                </div>
+        <div className="elements-schema">
+            {elemList.map((elem) => {
+                return <ElementEntry
+                    key={elem.id}
+                    elem={elem}
+                    selected={selected}
+                    hovered={hovered}
+                    selectedChange={selectedChange}
+                    hoveredChange={hoveredChange}
+                />
 
             })
 
@@ -25,13 +121,10 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered }) => {
                     hovered: {prettify(hovered, 1)}<br />
                 </div>
             </code>
-        </React.Fragment>
 
-
+        </div>
 
     );
 };
 export default ElementsList;
 
-// <div id="control_panel">
-// </div>

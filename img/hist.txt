@@ -1,0 +1,75 @@
+{
+
+  "elements": {
+
+    "0": {
+
+      "id": 0,
+
+      "typeId": 3,
+
+      "pos": [39,40],
+
+      "rotate": 0,
+
+      "typeIndex": 1
+
+    },
+
+    "1": {
+
+      "id": 1,
+
+      "typeId": 5,
+
+      "pos": [39,60],
+
+      "rotate": 0,
+
+      "typeIndex": 2
+
+    }
+
+  },
+
+  "wires": {
+
+    "0": {
+
+      "wireId": 0,
+
+      "source": {"type":"PIN","elementId":1,"pinIdx":"C"},
+
+      "target": {"type":"TCONN","pos":[40,50]},
+
+      "path": [[40,57],[40,50]]
+
+    },
+
+    "1": {
+
+      "wireId": 1,
+
+      "source": {"type":"PIN","elementId":0,"pinIdx":"E"},
+
+      "target": {"type":"TCONN","pos":[40,50]},
+
+      "path": [[40,43],[40,50]]
+
+    },
+
+    "2": {
+
+      "wireId": 2,
+
+      "source": {"type":"PIN","elementId":0,"pinIdx":"B"},
+
+      "target": {"type":"TCONN","pos":[40,50]},
+
+      "path": [[36,40],[35,40],[35,50],[40,50]]
+
+    }
+
+  }
+
+}

@@ -186,82 +186,138 @@ export const rotatePrimitive = (prim, rotateIndex) => {
 }
 export const isPointEqual = (pt1, pt2) => pt1[0] === pt2[0] && pt1[1] === pt2[1];
 
-export const LoadElems = async () => {
-    const resp = await fetch(`${API_URL}library`);
-    const result = await resp.json();
-    const elem_data = {};
-    // return elem_data;
-    if (!(resp.ok && result.success))
-        return;
+export const LoadElems = async (elems, errors) => {
 
-    result.data.forEach((rawElem) => {
-        // explode primitives to objects
-        const rawPrimitives = [];
-        let trimTurtle = rawElem.turtle;
-        if (trimTurtle) {
-            trimTurtle = trimTurtle.replace(/\s/g, '');
+    const loadLib = async (elems, errors) => {
+        const resp = await fetch(`${API_URL}library`);
+        const result = await resp.json();
 
-            const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
-            // split each primitive to CODE + PARAMS
-            for (const prim of primitiveGroup) {
-                const parsedPrim = {
-                    code: prim[1].toUpperCase(),
-                    params: prim[2].split(',').map((i) => parseFloat(i))
-                };
-                rawPrimitives.push(parsedPrim);
-            }
-
+        // return elem_data;
+        if (!(resp.ok && result.success)) {
+            errors.push('error fetch data in loadLib');
+            return;
         }
-        // explode pins to coords
-        const rawPins = {};
+        let cnt = 0;
+        result.data.forEach((rawElem) => {
+            // explode primitives to objects
+            const rawPrimitives = [];
 
-        let pinsGroup = rawElem.pins || '';
-        pinsGroup = pinsGroup.replace(/\s/g, '');
-        pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
-        for (const pin of pinsGroup) {
-            rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
-        }
+            let trimTurtle = rawElem.turtle;
+            if (trimTurtle) {
+                trimTurtle = trimTurtle.replace(/\s/g, '');
 
-        // prepare for element rotating
-        const turtle = Array.from({ length: 4 }, () => []);
-        const pins = Array.from({ length: 4 }, () => ({}));
-        const bounds = Array.from({ length: 4 }, () => [Infinity, Infinity, -Infinity, -Infinity]);
-
-        for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
-
-            // rotate all primitives
-            // bounds[rotateIndex] =;
-            for (const prim of rawPrimitives) {
-                const rotatedPrimitive = rotatePrimitive(prim, rotateIndex);
-                turtle[rotateIndex].push(rotatedPrimitive);
-
-                // get bounds for current and accumulate
-                const primitiveBounds = getPrimitiveBounds(rotatedPrimitive);
-                bounds[rotateIndex] = expandBounds(bounds[rotateIndex], primitiveBounds);
+                const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+                // split each primitive to CODE + PARAMS
+                for (const prim of primitiveGroup) {
+                    const parsedPrim = {
+                        code: prim[1].toUpperCase(),
+                        params: prim[2].split(',').map((i) => parseFloat(i))
+                    };
+                    rawPrimitives.push(parsedPrim);
+                }
 
             }
-            bounds[rotateIndex] = multiplyRect(bounds[rotateIndex], 1 / GRID_SIZE);
-            // rotate pins
-            for (let [pinName, pinCoords] of Object.entries(rawPins)) {
-                pins[rotateIndex][pinName] = rotatePoint(pinCoords, rotateIndex);
+            // explode pins to coords
+            const rawPins = {};
+
+            let pinsGroup = rawElem.pins || '';
+            pinsGroup = pinsGroup.replace(/\s/g, '');
+            pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
+            for (const pin of pinsGroup) {
+                rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
+            }
+
+            // prepare for element rotating
+            const turtle = Array.from({ length: 4 }, () => []);
+            const pins = Array.from({ length: 4 }, () => ({}));
+            const bounds = Array.from({ length: 4 }, () => [Infinity, Infinity, -Infinity, -Infinity]);
+
+            for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
+
+                // rotate all primitives
+                // bounds[rotateIndex] =;
+                for (const prim of rawPrimitives) {
+                    const rotatedPrimitive = rotatePrimitive(prim, rotateIndex);
+                    turtle[rotateIndex].push(rotatedPrimitive);
+
+                    // get bounds for current and accumulate
+                    const primitiveBounds = getPrimitiveBounds(rotatedPrimitive);
+                    bounds[rotateIndex] = expandBounds(bounds[rotateIndex], primitiveBounds);
+
+                }
+                bounds[rotateIndex] = multiplyRect(bounds[rotateIndex], 1 / GRID_SIZE);
+                // rotate pins
+                for (let [pinName, pinCoords] of Object.entries(rawPins)) {
+                    pins[rotateIndex][pinName] = rotatePoint(pinCoords, rotateIndex);
+
+                }
 
             }
 
+
+            elems[rawElem.typeId] =
+            {
+                typeId: rawElem.typeId,
+                abbr: rawElem.abbr,
+                descr: rawElem.descr,
+                name: rawElem.name,
+                turtle: turtle,
+                pins: pins,
+                bounds: bounds,
+                packages: {}
+            };
+            cnt++;
+        });
+        errors.push(`Loaded ${cnt} elements into library`);
+
+    }
+
+    const loadPackage = async (elems, errors) => {
+        const resp = await fetch(`${API_URL}packages`);
+        const result = await resp.json();
+
+        // return elem_data;
+        if (!(resp.ok && result.success)) {
+            errors.push('error fetch data in loadPackage');
+            return;
         }
 
+        result.data.forEach((phys) => {
 
-        elem_data[rawElem.typeId] =
-        {
-            typeId: rawElem.typeId,
-            abbr: rawElem.abbr,
-            descr: rawElem.descr,
-            name: rawElem.name,
-            turtle: turtle,
-            pins: pins,
-            bounds: bounds
-        };
+            // parse turtle
+            const rawPrimitives = [];
+            let trimTurtle = phys.turtle;
+            if (trimTurtle) {
+                trimTurtle = trimTurtle.replace(/\s/g, '');
 
-    });
-    return elem_data;
+                const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+                // split each primitive to CODE + PARAMS
+                for (const prim of primitiveGroup) {
+                    const parsedPrim = {
+                        code: prim[1].toUpperCase(),
+                        params: prim[2].split(',').map((i) => parseFloat(i))
+                    };
+                    rawPrimitives.push(parsedPrim);
+                }
+
+            }
+
+
+
+            // put package name to corresponding element
+            elems[phys.typeId].packages = { [phys.physId]: phys.name };
+
+        })
+
+
+
+
+    }
+
+
+    await loadLib(elems, errors);
+    await loadPackage(elems, errors);
+
+
 
 }

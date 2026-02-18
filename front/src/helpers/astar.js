@@ -130,21 +130,22 @@ export const mergePaths = (paths) => {
             const testPath = paths[i];
             const testStart = testPath[0];
             const testEnd = testPath.at(-1);
-
+            let found = false;
             if (isPointEqual(mergedEnd, testStart)) {
-                merged.push(testPath);
-                paths.splice(i, 1);
-                break;
+                merged.push(...testPath);
+                found = true;
             } else if (isPointEqual(mergedEnd, testEnd)) {
-                merged.push([...testPath].reverse());
-                paths.splice(i, 1);
-                break;
+                merged.push(...testPath.reverse());
+                found = true;
             } else if (isPointEqual(mergedStart, testEnd)) {
                 merged.unshift(...testPath);
-                paths.splice(i, 1);
-                break;
+                found = true;
             } else if (isPointEqual(mergedStart, testStart)) {
-                merged.unshift([...testPath].reverse());
+                merged.unshift(...testPath.reverse());
+                found = true;
+            }
+
+            if (found) {
                 paths.splice(i, 1);
                 break;
             }

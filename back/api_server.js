@@ -39,7 +39,24 @@ app.get('/api/library', async (req, res) => {
         });
     }
 });
+app.get('/api/packages', async (req, res) => {
 
+    try {
+        const db = await openDb();
+        const data = await db.all(`select * from phys`);
+        return res.status(200).json({
+            success: true,
+            data: data
+        });
+
+    } catch (err) {
+        console.error('error:', err);
+        res.status(500).json({
+            success: false,
+            error: err.stack
+        });
+    }
+});
 
 // Функция для очистки ресурсов
 const gracefulShutdown = async (signal) => {

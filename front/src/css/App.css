@@ -1,5 +1,9 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body,
-html {
+html, select {
 
   padding: 0px;
   margin: 0px;
@@ -16,7 +20,7 @@ html {
 #root {
   display: grid;
   grid-template-columns: 1fr 200px 70px;
-  grid-template-rows: 32px 32px 1fr;
+  grid-template-rows: 32px 32px 1fr 100px;
   height: 100vh;
   grid-auto-columns: 1fr;
   gap: 0px 0px;
@@ -24,7 +28,8 @@ html {
   grid-template-areas:
     "header header header"
     "control-bar control-bar control-bar"
-    "schema elem-schema library";
+    "schema elem-schema library"
+    "schema error-list error-list";
 }
 
 .schema {
@@ -33,10 +38,10 @@ html {
   background-color: pink;
 }
 
-
-.elements-list {
-  border: 1px solid rgba(25, 0, 255, 0.334);
-  width: 100%;
+.error-list {
+  grid-area: error-list;
+  color: blue;
+  padding: 5px;
 }
 
 
@@ -71,11 +76,7 @@ html {
 
 .elem-schema {
   grid-area: elem-schema;
-  background-color: rgba(128, 11, 118, 0.062);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+
 }
 
 .library {

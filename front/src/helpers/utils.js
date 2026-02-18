@@ -18,6 +18,6 @@ export const DragModeType = Object.freeze({
 
 export const DrawColor = Object.freeze({
     NORMAL: '#000000',
-    HOVERED: '#ff000055',
-    SELECTED: '#ff0000'
+    HOVERED: '#40ff00d3',
+    SELECTED: '#00ca00'
 });

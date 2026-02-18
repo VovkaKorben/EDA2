@@ -565,11 +565,11 @@ const SchemaCanvas = forwardRef(({
             Object.values(schemaElements.wires).forEach(wire => {
                 // for T-connectors store circles positions
                 if (wire.source.type === ObjectType.TCONN) {
-                    if (tconn.findIndex(n => isPointEqual(n, wire.source.pos) === -1))
+                    if (tconn.findIndex(n => isPointEqual(n, wire.source.pos)) === -1)
                         tconn.push(wire.source.pos);
                 }
                 if (wire.target.type === ObjectType.TCONN) {
-                    if (tconn.findIndex(n => isPointEqual(n, wire.target.pos) === -1))
+                    if (tconn.findIndex(n => isPointEqual(n, wire.target.pos)) === -1)
                         tconn.push(wire.target.pos);
                 }
 
@@ -849,7 +849,8 @@ const SchemaCanvas = forwardRef(({
             typeId: data.typeId,
             pos: insertPos,
             rotate: 0,
-            typeIndex: newTypeIndex
+            typeIndex: newTypeIndex,
+            package: null
         };
 
         onElemChanged(newElement, true);
