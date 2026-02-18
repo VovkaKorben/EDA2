@@ -1,11 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { prettify } from '../helpers/debug.js';
 import { ObjectType } from '../helpers/utils.js';
 import '../css/ElementList.css'
 
-const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange }) => {
+const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange, packageChange }) => {
+    const [packageSelectorVisible, setPackageSelectorVisible] = useState(false);
 
-    const [selectVisible, setSelectVisible] = useState(false);
+    const packageRef = useRef(null);
+    const handlePackageSelected = (clear) => {
+
+
+        setPackageSelectorVisible(false);
+        packageChange(
+            {
+                elementId: elem.id,
+                packageId: clear ? null : packageRef.current.value
+            });
+    }
+
+
+
 
     const classCollect = ['elements-entry', 'frsc'];
     if (selected.type === ObjectType.ELEMENT && selected.elementId === elem.id)
@@ -15,12 +29,15 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange }
     const mergedClass = classCollect.join(' ');
 
     let packageDisplay;
-    if (selectVisible) {
+    if (packageSelectorVisible) {
         // show package selector
 
         packageDisplay =
             <React.Fragment>
-                <select className='package-select'>
+                <select
+                    ref={packageRef}
+                    className='package-select'
+                >
                     {
                         Object.entries(elem.packages).map(p => {
 
@@ -35,37 +52,35 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange }
 
 
                 </select>
+
+                {/* confirm package selection */}
                 <img
                     src="./ok.svg"
-                    onClick={() => setSelectVisible(false)}
+                    onClick={() => handlePackageSelected(false)}
                 />
+
             </React.Fragment>;
 
     } else {
         // show selected package
         if (elem.package) {
-            packageDisplay = '2';
+            packageDisplay =
+                <React.Fragment>
+                    <div onClick={() => setPackageSelectorVisible(true)} >
+                        {elem.packages[elem.package]}
+                    </div>
+
+                    {/* clear package */}
+                    <img className='img-button'
+                        src="./close.svg"
+                        onClick={() => handlePackageSelected(true)}
+                    />
+                </React.Fragment>
         } else {
             // no package
-            packageDisplay =
-                <span className='dimmed' onClick={() => setSelectVisible(true)}>no package</span>
+            packageDisplay = <span className='dimmed' onClick={() => setPackageSelectorVisible(true)}>no package</span>
         }
     }
-
-    /*  {selectVisible ?
-    
-                   
-                   
-    
-                    : (
-                        elem.package ?
-                           
-                            'selected' :
-                           
-    
-                    )
-    
-                }*/
 
     return <div
         className={mergedClass}
@@ -79,7 +94,7 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange }
 }
 
 
-const ElementsList = ({ schemaElements, libElements, selected, hovered, selectedChange, hoveredChange }) => {
+const ElementsList = ({ schemaElements, libElements, selected, hovered, selectedChange, hoveredChange, packageChange }) => {
     // exit, if library not loaded -
     if (!libElements) return;
     if (Object.keys(libElements).length === 0) return;
@@ -109,12 +124,14 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered, selected
                     hovered={hovered}
                     selectedChange={selectedChange}
                     hoveredChange={hoveredChange}
+                    packageChange={packageChange}
                 />
 
             })
 
 
             }
+
             <code>
                 <div className='wr'>
                     selected: {prettify(selected, 1)}<br />

@@ -3,6 +3,7 @@ import { addPoint, multiplyPoint } from './geo.js';
 
 
 export const dpr = (globalThis.window !== undefined) ? (window.devicePixelRatio || 1) : null;
+console.log(dpr);
 export const GRID_SIZE = 2.5;
 
 export const adjustCtx = (v) => Math.round(v) + 0.5;

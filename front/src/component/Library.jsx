@@ -1,36 +1,45 @@
 import { useRef, useEffect } from 'react';
 // import { drawElement } from '../helpers/geo.js';
-import { dpr, drawElement } from '../helpers/draw.js';
+import { dpr, drawElement, GRID_SIZE } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
 import { DrawColor } from '../helpers/utils.js';
-const elemSize = 50;
-const elemMargin = 5; // in percent, i.e. for value 5 component take 100 - (2*5) = 90%
-const elemSizeScaled = Math.round(elemSize * dpr);
+import '../css/Library.css'
+
+const libWidth = 50;
+const libHeight = 50;
+const elemMargin = 15; // in percent, i.e. for value 5 component take 100 - (2*5) = 90%
+// const elemSizeScaled = Math.round(elemSize * dpr);
 
 
 
 
-const LibraryItem = ({ elem: lib }) => {
+const LibraryItem = ({ libElem }) => {
     const canvasRef = useRef(null);
 
     // draw principial
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
-
-
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-        // ctx.clearRect(0, 0, elemSize, elemSize);
-        ctx.clearRect(0, 0, elemSize * dpr, elemSize * dpr);
+        ctx.clearRect(0, 0, libWidth * dpr, libHeight * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+        const viewWidth = libWidth * (1 - elemMargin / 100 * 2);
+        const viewHeight = libHeight * (1 - elemMargin / 100 * 2);
+        // get bounds for unrotated
+        const elemBounds = libElem.bounds[0];
+        const elemWidth = elemBounds[2] - elemBounds[0];
+        const elemHeight = elemBounds[3] - elemBounds[1];
+        const kx = viewWidth / elemWidth;
+        const ky = viewHeight / elemHeight;
+        const k = kx > ky ? ky : kx;
+        const z = k / GRID_SIZE;
 
         const toDraw = {
-            ...lib,
-            pos: [elemSize / 2, elemSize / 2],
+            ...libElem,
+            pos: [libWidth / 2, libHeight / 2],
 
-            zoom: 3,
+            zoom: z,
             rotate: 0,
             color: DrawColor.NORMAL,
             width: 1
@@ -38,11 +47,11 @@ const LibraryItem = ({ elem: lib }) => {
 
         drawElement(ctx, toDraw);
 
-    }, [lib]);
+    }, [libElem]);
 
     // store elem in drag object
     const handleDragStart = (e) => {
-        e.dataTransfer.setData('compData', JSON.stringify(lib));
+        e.dataTransfer.setData('compData', JSON.stringify(libElem));
         e.dataTransfer.effectAllowed = 'move';
     };
     return (
@@ -50,21 +59,21 @@ const LibraryItem = ({ elem: lib }) => {
             draggable="true"
             onDragStart={handleDragStart}
             className="library-item"
-            style={{ '--element-width': `${elemSize}px`, '--element-height': `${elemSize}px` }}
+            style={{ '--element-width': `${libWidth}px`, '--element-height': `${libHeight}px` }}
         >
             <canvas ref={canvasRef}
-                width={elemSize * dpr}
-                height={elemSize * dpr}
-                style={{ width: elemSize, height: elemSize }}
+                width={libWidth * dpr}
+                height={libHeight * dpr}
+                style={{ width: libWidth, height: libHeight }}
             />
-            <div className='label'>{lib.name}</div>
+            <div className='label'>{libElem.name}</div>
         </div>
 
     );
 
 }
 // //{elems.map((elem) => {
-const Library = ({  libs }) => {
+const Library = ({ libs }) => {
 
 
     return (
@@ -73,7 +82,7 @@ const Library = ({  libs }) => {
 
                 return <LibraryItem
                     key={lib.typeId}
-                    elem={lib}
+                    libElem={lib}
 
                 />
             })

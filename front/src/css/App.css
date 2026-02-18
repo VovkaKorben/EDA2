@@ -1,124 +1,108 @@
-*, *::before, *::after {
-  box-sizing: border-box;
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
 }
 
 body,
-html, select {
+html,
+select {
 
-  padding: 0px;
-  margin: 0px;
-  font-family: "Saira Condensed", sans-serif;
-  font-weight: 400;
-  font-style: normal;
-  font-size: 12px;
+    padding: 0px;
+    margin: 0px;
+    font-family: "Saira Condensed", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    font-size: 12px;
 }
 
 
 
-
+/* "header header header" */
 
 #root {
-  display: grid;
-  grid-template-columns: 1fr 200px 70px;
-  grid-template-rows: 32px 32px 1fr 100px;
-  height: 100vh;
-  grid-auto-columns: 1fr;
-  gap: 0px 0px;
-  grid-auto-flow: row;
-  grid-template-areas:
-    "header header header"
-    "control-bar control-bar control-bar"
-    "schema elem-schema library"
-    "schema error-list error-list";
+    --selection-bg: rgba(136, 255, 0, 0.399);
+
+    display: grid;
+    grid-template-columns: 1fr 200px 70px;
+    grid-template-rows: 54px 1fr 100px;
+    height: 100vh;
+    grid-auto-columns: 1fr;
+    gap: 0px 0px;
+    grid-auto-flow: row;
+    grid-template-areas:
+        "control-bar control-bar control-bar"
+        "schema elem-schema library"
+        "schema error-list error-list";
 }
 
 .schema {
-  grid-area: schema;
-  border: 1px solid red;
-  background-color: pink;
+    grid-area: schema;
+    border: 1px solid black;
+    margin: 0px 5px 5px 5px;
+    /* background-color: pink; */
 }
 
 .error-list {
-  grid-area: error-list;
-  color: blue;
-  padding: 5px;
+    grid-area: error-list;
+    color: blue;
+    padding: 5px;
 }
 
 
 
 
 /* .schema-canvas {} */
-.header {
-  grid-area: header;
-  background-color: rgba(195, 0, 255, 0.154);
-}
+/* .header {     grid-area: header;    background-color: rgba(195, 0, 255, 0.154);} */
 
 .control-bar {
-  grid-area: control-bar;
-  background-color: rgba(0, 0, 255, 0.062);
-
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
+    /* background-color: rgba(255, 251, 0, 0.473); */
+    grid-area: control-bar;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 100%;
+    gap: 4px;
+    padding: 4px;
 }
 
 .control-button {
-  border: 1px solid rgb(7, 10, 201);
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  white-space: wrap;
-  line-height: 12px;
-  text-align: center;
+    border: 1px solid rgba(0, 0, 0, 0.39);
+
+    border-radius: 5px;
+    width: 100px;
+    height: 100%;
+    cursor: pointer;
+    white-space: wrap;
+    /* line-height: 12px; */
+    /* text-align: center; */
+    transition: all 200ms ease;
+}
+
+.control-button:hover {
+    background-color: var(--selection-bg);
+    border-radius: 15px;
+
+}
+
+.control-button img {
+    margin: 5px;
 }
 
 .elem-schema {
-  grid-area: elem-schema;
+    grid-area: elem-schema;
 
 }
 
 .library {
-  grid-area: library;
-  background-color: rgba(0, 255, 123, 0.082);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.library-item {
-  width: var(--element-width);
-  height: var(--element-height);
-  border: 1px solid rgba(0, 0, 0, 0.603);
-  position: relative;
-  box-sizing: border-box;
+    grid-area: library;
 
 }
 
-.library-item canvas {
-  width: var(--element-width);
-  height: var(--element-height);
-  position: absolute;
-  top: 0px;
-  left: 0px;
-}
 
-.library-item .label {
-  position: absolute;
-  bottom: -2px;
-  left: 0px;
-  width: 100%;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 10px;
-}
 
 .wr {
-  /* white-space: wrap; */
-  /* overflow-wrap: break-word; */
-  white-space: pre-wrap;
+    /* white-space: wrap; */
+    /* overflow-wrap: break-word; */
+    white-space: pre-wrap;
 }

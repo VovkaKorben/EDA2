@@ -924,7 +924,7 @@ const SchemaCanvas = forwardRef(({
 
     return (
         <React.Fragment>
-            {`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Parrots: [${parrotsPos[0]}, ${parrotsPos[1]}]`}<br />
+            {/* {`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Parrots: [${parrotsPos[0]}, ${parrotsPos[1]}]`}<br /> */}
             {/* hovered: {prettify(hovered, 0)} */}
             <canvas
                 onDragOver={handleDragOver}
@@ -936,8 +936,8 @@ const SchemaCanvas = forwardRef(({
                 onMouseUp={handleMouseUp}
 
                 style={{
-                    width: '90%',
-                    height: '90%',
+                    width: '100%',
+                    height: '100%',
                     display: 'block',
                     border: '0px',
                     background: '#fff',

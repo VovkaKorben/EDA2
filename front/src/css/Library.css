@@ -1,0 +1,57 @@
+.library {
+
+    --lib-bg-color: rgb(255, 255, 255);
+
+    background-color: var(--lib-bg-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* gap: 2px; */
+}
+
+.library-item {
+    width: var(--element-width);
+    height: var(--element-height);
+    border: 1px solid rgba(0, 0, 0, 0.053);
+    border-radius: 7px;
+    position: relative;
+    box-sizing: border-box;
+    margin-bottom: 3px;
+    transition: all 180ms ease;
+}
+
+.library-item canvas {
+    width: var(--element-width);
+    height: var(--element-height);
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+.library-item .label {
+    position: absolute;
+    bottom: -2px;
+    left: 0px;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    opacity: 0;
+
+    -webkit-text-stroke-width: 5px;
+    -webkit-text-stroke-color: var(--lib-bg-color);
+    color: black;
+    paint-order: stroke fill;
+}
+
+.library-item:hover {
+    border-color: black;
+
+}
+
+.library-item:hover .label {
+
+    opacity: 1.0;
+}

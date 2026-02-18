@@ -73,7 +73,7 @@ function App() {
 
             }
             case 3: refSchemaCanvas.current?.resetView(); break;
-            case 4:
+            case 400:
 
                 // console.log(prettify(libElements, 0));
                 console.log(prettify(schemaElements, 3));
@@ -81,6 +81,23 @@ function App() {
         }
     }
 
+    // update package
+    const setPackage = (data) => {
+        setSchemaElements(prev => {
+            // const newElements = { ...};
+            const newElement = {
+                ...prev.elements[data.elementId],
+                package: data.packageId
+            };
+            const newElements = {
+                ...prev.elements,
+                [data.elementId]: newElement
+            };
+            return { ...prev, elements: newElements };
+        });
+    };
+
+    // add/modify element
     const onElemChanged = useCallback((elem, select) => {
         setSchemaElements(prev => {
             const newElements = { ...prev.elements, [elem.id]: elem };
@@ -91,12 +108,14 @@ function App() {
         });
     }, []);
 
+    // update wires 
     const onWiresChanged = useCallback((wires) => {
 
         setSchemaElements(prev => ({ ...prev, wires: wires }))
 
     }, []);
 
+    // delete element
     const onElemDeleted = useCallback((elementId) => {
 
         setSchemaElements(prev => {
@@ -109,11 +128,12 @@ function App() {
         });
     }, []);
 
+
     return (
         <>
 
 
-            <div className="header"></div>
+            {/* <div className="header"></div> */}
             <div className="control-bar">  <Controls onAction={handleAction} /></div>
             <div className="library">
                 <Library
@@ -130,6 +150,7 @@ function App() {
 
                 hoveredChange={(obj) => setHovered(obj)}
                 selectedChange={(obj) => setSelected(obj)}
+                packageChange={data => setPackage(data)}
             />
 
             <div className="schema">

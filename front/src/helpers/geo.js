@@ -305,7 +305,7 @@ export const LoadElems = async (elems, errors) => {
 
 
             // put package name to corresponding element
-            elems[phys.typeId].packages = { [phys.physId]: phys.name };
+            elems[phys.typeId].packages[phys.physId] = phys.name;
 
         })
 

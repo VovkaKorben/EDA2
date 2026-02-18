@@ -4,21 +4,23 @@ import React from 'react';
 const buttonsCodes = [
 
 
-    { id: 1, caption: 'Load', ico: '' },
-    { id: 5, caption: 'Save', ico: '' },
+    { id: 1, caption: 'Load', ico: 'open' },
+    { id: 5, caption: 'Save', ico: 'save' },
 
-    { id: 20, caption: 'Clear all', ico: '' },
-    { id: 21, caption: 'Clear wires', ico: '' },
+    { id: 20, caption: 'Clear all', ico: 'clear_all' },
+    { id: 21, caption: 'Clear wires', ico: 'clear_wires' },
 
-    { id: 3, caption: 'reset view', ico: '' },
-    { id: 4, caption: 'log', ico: '' }
+    { id: 3, caption: 'Reset view', ico: 'view' },
+    { id: 4, caption: 'Route', ico: 'route' },
+     { id: 400, caption: 'log', ico: '' }
 ]
 
-const ControlButton = ({ text, onClick }) => {
+const ControlButton = ({ text, onClick, ico }) => {
     return (
         <div
             onClick={onClick}
             className="control-button frcc">
+            {ico && <img src={`./${ico}.svg`} />}
             {text}
         </div>
     );
