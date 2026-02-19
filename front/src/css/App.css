@@ -106,3 +106,10 @@ select {
     /* overflow-wrap: break-word; */
     white-space: pre-wrap;
 }
+
+.dbg-fixed {
+    position: fixed;
+    top: 70px;
+    left: 50px;
+    font-size: 24px;
+}

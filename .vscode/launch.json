@@ -34,10 +34,10 @@
       "preLaunchTask": "clearConsole"
     },
     {
-      "name": "AStar Test",
+      "name": "route",
       "type": "node",
       "request": "launch",
-      "program": "astar.js",
+      "program": "route.js",
       "cwd": "${workspaceFolder}/front/src/helpers",
       "console": "integratedTerminal",
     },

@@ -576,7 +576,50 @@ const SchemaCanvas = forwardRef(({
                 const drawColor = (selected?.type === ObjectType.WIRE && wire.wireId === selected.wireId) ?
                     DrawColor.SELECTED : DrawColor.NORMAL;
                 drawWire(ctx, wire.path, 1, drawColor, parrotsToScreen);
+
+
+
+
+
+
+
+
+                // Вывод ID провода для отладки
+                const start = wire.path[0];
+                const end = wire.path[wire.path.length - 1];
+                const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+                const [tx, ty] = parrotsToScreen(mid);
+
+                ctx.save();
+                ctx.fillStyle = 'red';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
+                ctx.restore();
+
+
+
+
+
+
+
+
+
+
+
+
             });
+
+
+
+
+
+
+
+
+
+
+
             // t-conn circles
             ctx.lineWidth = 1; ctx.fillStyle = DrawColor.NORMAL;
             ctx.beginPath();
@@ -924,7 +967,7 @@ const SchemaCanvas = forwardRef(({
 
     return (
         <React.Fragment>
-            {/* {`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Parrots: [${parrotsPos[0]}, ${parrotsPos[1]}]`}<br /> */}
+            <div className='dbg-fixed'>{`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Parrots: [${parrotsPos[0]}, ${parrotsPos[1]}]`}</div>
             {/* hovered: {prettify(hovered, 0)} */}
             <canvas
                 onDragOver={handleDragOver}

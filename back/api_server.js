@@ -43,7 +43,7 @@ app.get('/api/packages', async (req, res) => {
 
     try {
         const db = await openDb();
-        const data = await db.all(`select * from phys order by name`);
+        const data = await db.all(`select physId,typeId,name from phys order by name`);
         return res.status(200).json({
             success: true,
             data: data
@@ -57,7 +57,33 @@ app.get('/api/packages', async (req, res) => {
         });
     }
 });
+app.post('/api/packages', async (req, res) => {
 
+    try {
+        const db = await openDb();
+
+        const ids = req.body;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'Массив ID не передан' });
+        }
+
+        const placeholders = ids.map(() => '?').join(',');
+        const sql = `SELECT * FROM phys WHERE physId IN (${placeholders})`;
+        const data = await db.all(sql, ids);
+        return res.status(200).json({
+            success: true,
+            data: data
+        });
+
+    } catch (err) {
+        console.error('error:', err);
+        res.status(500).json({
+            success: false,
+            error: err.stack
+        });
+    }
+});
 // Функция для очистки ресурсов
 const gracefulShutdown = async (signal) => {
     console.log(`\n⚠️  Received ${signal}. Shutting down...`);

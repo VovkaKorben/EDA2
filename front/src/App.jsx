@@ -74,9 +74,9 @@ function App() {
             }
             case 3: refSchemaCanvas.current?.resetView(); break;
             case 400:
-
+                log_wires(schemaElements.wires);
                 // console.log(prettify(libElements, 0));
-                console.log(prettify(schemaElements, 3));
+                // console.log(prettify(schemaElements, 2));
                 break;
         }
     }
@@ -128,6 +128,32 @@ function App() {
         });
     }, []);
 
+
+    const log_wires = (wires) => {
+
+        const add_node = (e) => {
+            if (e.type === ObjectType.PIN) {
+                const elem = schemaElements.elements[e.elementId];
+
+                const lib = libElements[elem.typeId];
+                return `${lib.abbr}${elem.typeIndex} ${e.pinIdx}`;
+            } else if (e.type === ObjectType.TCONN) {
+                return `NODE (${e.pos[0]},${e.pos[1]})`;
+            }
+
+
+        }
+        console.log('--- wires -----------------------------------');
+        Object.values(wires).forEach(w => {
+
+
+            let s = `[${w.wireId}] `;
+            s = s + add_node(w.source) + ' -> ' + add_node(w.target);
+            console.log(s);
+
+        })
+
+    };
 
     return (
         <>
