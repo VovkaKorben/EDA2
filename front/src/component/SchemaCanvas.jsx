@@ -495,7 +495,7 @@ const SchemaCanvas = forwardRef(({
             try {
                 // thin lines
                 ctx.beginPath();
-                ctx.strokeStyle = '#00000015'; // Сделала чуть прозрачнее для 2.5мм
+                ctx.strokeStyle = '#00000006'; // Сделала чуть прозрачнее для 2.5мм
                 let currentParrot = parrotX;
                 for (let x = startX; x < canvas.width; x += view.interval) {
                     if (currentParrot % GRID_BOLD_EACH) {
@@ -519,7 +519,7 @@ const SchemaCanvas = forwardRef(({
 
                 // thick lines
                 ctx.beginPath();
-                ctx.strokeStyle = '#00000035'; // Сделала чуть прозрачнее для 2.5мм
+                ctx.strokeStyle = '#00000015'; // Сделала чуть прозрачнее для 2.5мм
                 currentParrot = parrotX;
                 for (let x = startX; x < canvas.width; x += view.interval) {
                     if (!(currentParrot % GRID_BOLD_EACH)) {
@@ -749,11 +749,21 @@ const SchemaCanvas = forwardRef(({
 
     }, [libElements, schemaElements, hovered, view, activeRoute, selected]);
     const drawRef = useRef(drawAll);
-    useEffect(() => { drawRef.current = drawAll; }, [drawAll]);
+    useEffect(() => {
+        // Обновляем реф для ResizeObserver (он всегда будет актуальным)
+        drawRef.current = drawAll;
 
-    useEffect(() => {// ResizeObserver
-        drawRef.current();
+        // Вызываем отрисовку напрямую
+        // requestAnimationFrame гарантирует, что DOM готов
+        const frameId = requestAnimationFrame(() => {
+            drawAll();
+        });
+
+        return () => cancelAnimationFrame(frameId);
     }, [drawAll]);
+// ResizeObserver
+
+   
     useEffect(() => {// update canvas size
 
         const canvas = canvasRef.current;
@@ -762,7 +772,7 @@ const SchemaCanvas = forwardRef(({
             const { clientWidth, clientHeight } = canvas;
             canvas.width = clientWidth * dpr;
             canvas.height = clientHeight * dpr;
-            drawRef.current();
+          if (drawRef.current) drawRef.current();
         });
         resizeObserver.observe(canvas);
 
@@ -893,7 +903,7 @@ const SchemaCanvas = forwardRef(({
             pos: insertPos,
             rotate: 0,
             typeIndex: newTypeIndex,
-            package: null
+            packageId: null
         };
 
         onElemChanged(newElement, true);

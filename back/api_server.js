@@ -43,7 +43,7 @@ app.get('/api/packages', async (req, res) => {
 
     try {
         const db = await openDb();
-        const data = await db.all(`select physId,typeId,name from phys order by name`);
+        const data = await db.all(`select packageId,typeId,name from phys order by name`);
         return res.status(200).json({
             success: true,
             data: data
@@ -69,7 +69,7 @@ app.post('/api/packages', async (req, res) => {
         }
 
         const placeholders = ids.map(() => '?').join(',');
-        const sql = `SELECT * FROM phys WHERE physId IN (${placeholders})`;
+        const sql = `SELECT * FROM phys WHERE packageId IN (${placeholders})`;
         const data = await db.all(sql, ids);
         return res.status(200).json({
             success: true,

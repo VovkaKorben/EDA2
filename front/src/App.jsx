@@ -87,7 +87,7 @@ function App() {
             // const newElements = { ...};
             const newElement = {
                 ...prev.elements[data.elementId],
-                package: data.packageId
+                packageId: data.packageId
             };
             const newElements = {
                 ...prev.elements,

@@ -17,8 +17,7 @@
         "dev"
       ],
       "cwd": "${workspaceFolder}/back",
-      "console": "integratedTerminal",
-      "preLaunchTask": "clearConsole"
+      "console": "integratedTerminal"
     },
     {
       "name": "Frontend",
@@ -30,8 +29,7 @@
         "dev"
       ],
       "cwd": "${workspaceFolder}/front",
-      "console": "integratedTerminal",
-      "preLaunchTask": "clearConsole"
+      "console": "integratedTerminal"
     },
     {
       "name": "route",

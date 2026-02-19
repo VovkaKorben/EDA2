@@ -315,30 +315,3 @@ export const doAStar = (grid) => {
     }
     return null;
 }
-
-
-/*
-
-const le = { "1": { "typeId": 1, "abbr": "R", "descr": "A resistor is a passive component that reduces voltage or limits the current flowing through a circuit.", "name": "resistor", "turtle": [[{ "code": "R", "params": [-5, -2, 10, 4] }, { "code": "L", "params": [-10, 0, -5, 0] }, { "code": "L", "params": [5, 0, 10, 0] }], [{ "code": "R", "params": [2, -5, -4, 10] }, { "code": "L", "params": [0, -10, 0, -5] }, { "code": "L", "params": [0, 5, 0, 10] }], [{ "code": "R", "params": [5, 2, -10, -4] }, { "code": "L", "params": [10, 0, 5, 0] }, { "code": "L", "params": [-5, 0, -10, 0] }], [{ "code": "R", "params": [-2, 5, 4, -10] }, { "code": "L", "params": [0, 10, 0, 5] }, { "code": "L", "params": [0, -5, 0, -10] }]], "pins": [{ "0": [-4, 0], "1": [4, 0] }, { "0": [0, -4], "1": [0, 4] }, { "0": [4, 0], "1": [-4, 0] }, { "0": [0, 4], "1": [0, -4] }], "bounds": [[-4, -0.8, 4, 0.8], [-0.8, -4, 0.8, 4], [-4, -0.8, 4, 0.8], [-0.8, -4, 0.8, 4]] }, "2": { "typeId": 2, "abbr": "C", "descr": "A capacitor is a passive, two-terminal electronic component that stores electrical energy in an electric field by accumulating charge on two conductive plates separated by an insulating dielectric material", "name": "capacitor", "turtle": [[{ "code": "L", "params": [-5, 0, -1, 0] }, { "code": "L", "params": [1, -4, 1, 4] }, { "code": "L", "params": [-1, -4, -1, 4] }, { "code": "L", "params": [1, 0, 5, 0] }], [{ "code": "L", "params": [0, -5, 0, -1] }, { "code": "L", "params": [4, 1, -4, 1] }, { "code": "L", "params": [4, -1, -4, -1] }, { "code": "L", "params": [0, 1, 0, 5] }], [{ "code": "L", "params": [5, 0, 1, 0] }, { "code": "L", "params": [-1, 4, -1, -4] }, { "code": "L", "params": [1, 4, 1, -4] }, { "code": "L", "params": [-1, 0, -5, 0] }], [{ "code": "L", "params": [0, 5, 0, 1] }, { "code": "L", "params": [-4, -1, 4, -1] }, { "code": "L", "params": [-4, 1, 4, 1] }, { "code": "L", "params": [0, -1, 0, -5] }]], "pins": [{ "PIN1": [2, 0], "PIN2": [-2, 0] }, { "PIN1": [0, 2], "PIN2": [0, -2] }, { "PIN1": [-2, 0], "PIN2": [2, 0] }, { "PIN1": [0, -2], "PIN2": [0, 2] }], "bounds": [[-2, -1.6, 2, 1.6], [-1.6, -2, 1.6, 2], [-2, -1.6, 2, 1.6], [-1.6, -2, 1.6, 2]] }, "3": { "typeId": 3, "abbr": "VT", "descr": "A transistor is a fundamental semiconductor device used to amplify or switch electrical signals and power, serving as a building block for modern electronics.", "name": "pnp transistor", "turtle": [[{ "code": "P", "params": [-1.55, 1.357, 0.17, 1.536, -0.66, 2.845, 2] }, { "code": "P", "params": [-1.55, 1.357, 2.5, 3.927, 2.5, 7.5, 0] }, { "code": "P", "params": [-1.55, -1.357, 2.5, -3.928, 2.5, -7.5, 0] }, { "code": "L", "params": [-7.5, 0, -1.55, 0] }, { "code": "L", "params": [-1.55, 3.103, -1.55, -3.103] }, { "code": "C", "params": [0, 0, 4.66] }], [{ "code": "P", "params": [-1.357, -1.55, -1.536, 0.17, -2.845, -0.66, 2] }, { "code": "P", "params": [-1.357, -1.55, -3.927, 2.5, -7.5, 2.5, 0] }, { "code": "P", "params": [1.357, -1.55, 3.928, 2.5, 7.5, 2.5, 0] }, { "code": "L", "params": [0, -7.5, 0, -1.55] }, { "code": "L", "params": [-3.103, -1.55, 3.103, -1.55] }, { "code": "C", "params": [0, 0, 4.66] }], [{ "code": "P", "params": [1.55, -1.357, -0.17, -1.536, 0.66, -2.845, 2] }, { "code": "P", "params": [1.55, -1.357, -2.5, -3.927, -2.5, -7.5, 0] }, { "code": "P", "params": [1.55, 1.357, -2.5, 3.928, -2.5, 7.5, 0] }, { "code": "L", "params": [7.5, 0, 1.55, 0] }, { "code": "L", "params": [1.55, -3.103, 1.55, 3.103] }, { "code": "C", "params": [0, 0, 4.66] }], [{ "code": "P", "params": [1.357, 1.55, 1.536, -0.17, 2.845, 0.66, 2] }, { "code": "P", "params": [1.357, 1.55, 3.927, -2.5, 7.5, -2.5, 0] }, { "code": "P", "params": [-1.357, 1.55, -3.928, -2.5, -7.5, -2.5, 0] }, { "code": "L", "params": [0, 7.5, 0, 1.55] }, { "code": "L", "params": [3.103, 1.55, -3.103, 1.55] }, { "code": "C", "params": [0, 0, 4.66] }]], "pins": [{ "PIN1": [1, -3], "PIN2": [-3, 0], "PIN3": [1, 3] }, { "PIN1": [3, 1], "PIN2": [0, -3], "PIN3": [-3, 1] }, { "PIN1": [-1, 3], "PIN2": [3, 0], "PIN3": [-1, -3] }, { "PIN1": [-3, -1], "PIN2": [0, 3], "PIN3": [3, -1] }], "bounds": [[-3, -3, 1.864, 3], [-3, -3, 3, 1.864], [-1.864, -3, 3, 3], [-3, -1.864, 3, 3]] }, "4": { "typeId": 4, "abbr": "VD", "descr": "A diode is a semiconductor device, typically made of silicon, that essentially acts as a one-way switch for current.", "name": "diode", "turtle": [[{ "code": "L", "params": [2.5, 2.5, 2.5, -2.5] }, { "code": "P", "params": [-2.5, -2.5, 2.5, 0, -2.5, 2.5, 1] }, { "code": "L", "params": [-5, 0, 5, 0] }], [{ "code": "L", "params": [-2.5, 2.5, 2.5, 2.5] }, { "code": "P", "params": [2.5, -2.5, 0, 2.5, -2.5, -2.5, 1] }, { "code": "L", "params": [0, -5, 0, 5] }], [{ "code": "L", "params": [-2.5, -2.5, -2.5, 2.5] }, { "code": "P", "params": [2.5, 2.5, -2.5, 0, 2.5, -2.5, 1] }, { "code": "L", "params": [5, 0, -5, 0] }], [{ "code": "L", "params": [2.5, -2.5, -2.5, -2.5] }, { "code": "P", "params": [-2.5, 2.5, 0, -2.5, 2.5, 2.5, 1] }, { "code": "L", "params": [0, 5, 0, -5] }]], "pins": [{ "PIN1": [2, 0], "PIN2": [-2, 0] }, { "PIN1": [0, 2], "PIN2": [0, -2] }, { "PIN1": [-2, 0], "PIN2": [2, 0] }, { "PIN1": [0, -2], "PIN2": [0, 2] }], "bounds": [[-2, -1, 2, 1], [-1, -2, 1, 2], [-2, -1, 2, 1], [-1, -2, 1, 2]] } }
-const se = { "elements": { "1770957831203": { "id": 1770957831203, "typeId": 3, "pos": [52, 45], "rotate": 0, "typeIndex": 1 }, "1770957832868": { "id": 1770957832868, "typeId": 3, "pos": [64, 53], "rotate": 0, "typeIndex": 2 } }, "wires": [] }
-const pb = [41, 36, 77, 88,];
-const gr = prepareAStarGrid(pb, le, se);
-console.log(gr);
-const startPt = [53, 48];
-const goalPt = [65, 56];
-gr.startIdx = coordsToFlat(gr, startPt);
-gr.goalIdx = coordsToFlat(gr, goalPt);
-const indexRoute = doAStar(gr);
-console.log(indexRoute);
-const coordsRoute = collapseRoute(gr, indexRoute);
-console.log(coordsRoute);
-
-
-
-
-
-
-
-
-
-*/

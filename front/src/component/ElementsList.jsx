@@ -63,11 +63,11 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange, 
 
     } else {
         // show selected package
-        if (elem.package) {
+        if (elem.packageId) {
             packageDisplay =
                 <React.Fragment>
                     <div onClick={() => setPackageSelectorVisible(true)} >
-                        {elem.packages[elem.package]}
+                        {elem.packages[elem.packageId]}
                     </div>
 
                     {/* clear package */}

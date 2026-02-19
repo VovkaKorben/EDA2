@@ -1,0 +1,111 @@
+BSSF (Best Short Side Fit)
+
+// Структуры данных
+struct Rect { x, y, w, h }
+List<Rect> freeRects = []
+List<Rect> packedRects = []
+int binW = 0, binH = 0
+
+// ОСНОВНОЙ ЦИКЛ
+Function PackRectangles(inputRects):
+    // Сортировка для лучшей плотности
+    Sort inputRects by Area descending 
+
+    For each rect in inputRects:
+        // 1. Пытаемся найти место в текущих границах
+        bestFreeRect = FindBestFit(rect, freeRects)
+
+        // 2. Если место не найдено, расширяем контейнер
+        If bestFreeRect == null:
+            ExpandBin(rect)
+            bestFreeRect = FindBestFit(rect, freeRects)
+
+        // 3. Размещаем прямоугольник
+        rect.x = bestFreeRect.x
+        rect.y = bestFreeRect.y
+        packedRects.Add(rect)
+
+        // 4. Обновляем список свободных областей (Split & Prune)
+        UpdateFreeRects(rect)
+
+// ПОИСК МЕСТА (BSSF)
+Function FindBestFit(rect, freeRects):
+    bestRect = null
+    minShortSideFit = Infinity
+
+    For each free in freeRects:
+        If free.w >= rect.w AND free.h >= rect.h:
+            leftoverW = free.w - rect.w
+            leftoverH = free.h - rect.h
+            shortSideFit = min(leftoverW, leftoverH)
+            
+            If shortSideFit < minShortSideFit:
+                minShortSideFit = shortSideFit
+                bestRect = free
+    Return bestRect
+
+// РАСШИРЕНИЕ КОНТЕЙНЕРА
+Function ExpandBin(rect):
+    canGrowRight = (binW + rect.w) * max(binH, rect.h)
+    canGrowDown = (binH + rect.h) * max(binW, rect.w)
+
+    If canGrowRight < canGrowDown:
+        // Добавляем свободную область справа
+        newFree = Rect(binW, 0, rect.w, max(binH, rect.h))
+        binW += rect.w
+        binH = max(binH, rect.h)
+    Else:
+        // Добавляем свободную область снизу
+        newFree = Rect(0, binH, max(binW, rect.w), rect.h)
+        binH += rect.h
+        binW = max(binW, rect.w)
+    
+    freeRects.Add(newFree)
+    // После расширения нужно выполнить слияние свободных областей,
+    // чтобы "сшить" новую область с существующими у края.
+
+// ОБНОВЛЕНИЕ СВОБОДНЫХ ОБЛАСТЕЙ
+Function UpdateFreeRects(placedRect):
+    NewList newList
+    For each free in freeRects:
+        If RectsIntersect(free, placedRect):
+            // Разрезаем текущий свободный прямоугольник на 4 части
+            If placedRect.x < free.x + free.w AND placedRect.x + placedRect.w > free.x:
+                // Верхняя часть
+                If placedRect.y > free.y:
+                    newList.Add(Rect(free.x, free.y, free.w, placedRect.y - free.y))
+                // Нижняя часть
+                If placedRect.y + placedRect.h < free.y + free.h:
+                    newList.Add(Rect(free.x, placedRect.y + placedRect.h, free.w, free.y + free.h - (placedRect.y + placedRect.h)))
+            
+            // Аналогично для левой и правой частей...
+        Else:
+            newList.Add(free)
+    
+    // Удаляем дубликаты и те, что внутри других
+    freeRects = CleanUp(newList)
+
+
+
+    
+    // РАСШИРЕНИЕ КОНТЕЙНЕРА
+    const expandBin = (rect) => {
+        const canGrowRight = (binW + rect.w) * Math.max(binH, rect.h)
+        const canGrowDown = (binH + rect.h) * Math.max(binW, rect.w)
+
+        let newFree;
+        if (canGrowRight < canGrowDown) {
+            // Добавляем свободную область справа
+            newFree = Rect(binW, 0, rect.w, Math.max(binH, rect.h))
+            binW += rect.w
+            binH = Math.max(binH, rect.h)
+        } else {
+            // Добавляем свободную область снизу
+            newFree = Rect(0, binH, Math.max(binW, rect.w), rect.h);
+            binH += rect.h
+            binW = Math.max(binW, rect.w)
+        }
+        freeRects.Add(newFree)
+        // После расширения нужно выполнить слияние свободных областей,
+        // чтобы "сшить" новую область с существующими у края.
+    }

@@ -1,7 +1,43 @@
 import { GRID_SIZE } from './draw.js';
 import { API_URL } from './utils.js';
+export const extractCoords = (coordsString) => {
+    const exploded = coordsString.split(',');
+    const values = exploded.map(v => +v);
+    return values;
 
 
+}
+export const turtleToParams = (turtleString) => {
+    const rawPrimitives = [];
+
+    let trimTurtle = turtleString;
+    if (trimTurtle) {
+        trimTurtle = trimTurtle.replace(/\s/g, '');
+
+        const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+        // split each primitive to CODE + PARAMS
+        for (const prim of primitiveGroup) {
+            const parsedPrim = {
+                code: prim[1].toUpperCase(),
+                params: prim[2].split(',').map((i) => parseFloat(i))
+            };
+            rawPrimitives.push(parsedPrim);
+        }
+
+    }
+    return rawPrimitives;
+};
+export const pinsToParams = (pinString) => {
+    const rawPins = {};
+    let pinsGroup = pinString || '';
+    pinsGroup = pinsGroup.replace(/\s/g, '');
+    pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
+    for (const pin of pinsGroup) {
+        rawPins[pin[1]] = [+pin[2], +pin[3]];//rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
+    }
+    return rawPins;
+
+};
 export const getPrimitiveBounds = (prim) => {
 
 
@@ -46,7 +82,6 @@ export const getPrimitiveBounds = (prim) => {
     return primBounds;
 
 }
-
 export const expandBounds = (current, add) => {
 
     return [
@@ -56,6 +91,17 @@ export const expandBounds = (current, add) => {
 
 }
 
+export const expandBoundsByPoint = (current, point) => {
+
+    return [
+        Math.min(current[0], point[0]), Math.min(current[1], point[1]),
+        Math.max(current[2], point[0]), Math.max(current[3], point[1])
+    ]
+
+}
+
+export const getRectWidth = (rect) => rect[2] - rect[0];
+export const getRectHeight = (rect) => rect[3] - rect[1];
 export const getWH = (arr) => { return [arr[2] - arr[0], arr[3] - arr[1]]; };
 export const clamp = (v, min, max) => { if (v < min) return min; if (v > max) return max; return v; }
 
@@ -70,8 +116,8 @@ export const ptInRect = (rect, point) => {
         point[0] <= rect[2] &&
         point[1] >= rect[1] &&
         point[1] <= rect[3];
-
 }
+
 export const floatEqual = (f1, f2, e = Number.EPSILON) => { return Math.abs(f1 - f2) < e; }
 export const leq = (a, b, e = Number.EPSILON) => { return (a < b) || (Math.abs(a - b) < e); }
 export const geq = (a, b, e = Number.EPSILON) => { return (a > b) || (Math.abs(a - b) < e); }
@@ -94,7 +140,10 @@ export const multiplyRect = (rect, m) => {
 export const expandRect = (rect, x, y) => {
     return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
 }
-
+// expands point to rect 
+export const expandPoint = (point, x, y) => {
+    return [point[0] - x, point[1] - y, point[0] + x, point[1] + y]
+}
 export const snapRect = (rect) => {
     const [x1, y1, x2, y2] = rect;
     return [Math.floor(x1), Math.floor(y1), Math.ceil(x2), Math.ceil(y2)];
@@ -200,32 +249,14 @@ export const LoadElems = async (elems, errors) => {
         let cnt = 0;
         result.data.forEach((rawElem) => {
             // explode primitives to objects
-            const rawPrimitives = [];
+            const rawPrimitives = turtleToParams(rawElem.turtle);
 
-            let trimTurtle = rawElem.turtle;
-            if (trimTurtle) {
-                trimTurtle = trimTurtle.replace(/\s/g, '');
-
-                const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
-                // split each primitive to CODE + PARAMS
-                for (const prim of primitiveGroup) {
-                    const parsedPrim = {
-                        code: prim[1].toUpperCase(),
-                        params: prim[2].split(',').map((i) => parseFloat(i))
-                    };
-                    rawPrimitives.push(parsedPrim);
-                }
-
-            }
             // explode pins to coords
-            const rawPins = {};
+            const rawPins = pinsToParams(rawElem.pins);
 
-            let pinsGroup = rawElem.pins || '';
-            pinsGroup = pinsGroup.replace(/\s/g, '');
-            pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
-            for (const pin of pinsGroup) {
-                rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
-            }
+            // Object.keys(rawPins).forEach(k => {                rawPins[k] = multiplyPoint(rawPins[k], 1 / GRID_SIZE)            });
+
+
 
             // prepare for element rotating
             const turtle = Array.from({ length: 4 }, () => []);
@@ -248,7 +279,8 @@ export const LoadElems = async (elems, errors) => {
                 bounds[rotateIndex] = multiplyRect(bounds[rotateIndex], 1 / GRID_SIZE);
                 // rotate pins
                 for (let [pinName, pinCoords] of Object.entries(rawPins)) {
-                    pins[rotateIndex][pinName] = rotatePoint(pinCoords, rotateIndex);
+                    const zoomedPin = multiplyPoint(pinCoords, 1 / GRID_SIZE);
+                    pins[rotateIndex][pinName] = rotatePoint(zoomedPin, rotateIndex);
 
                 }
 
@@ -305,7 +337,7 @@ export const LoadElems = async (elems, errors) => {
 
 
             // put package name to corresponding element
-            elems[phys.typeId].packages[phys.physId] = phys.name;
+            elems[phys.typeId].packages[phys.packageId] = phys.name;
 
         })
 
