@@ -76,19 +76,32 @@
             status.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
         }
 
-        // Экспорт всего хранилища
-        function exportAll() {
-            const allData = JSON.stringify(localStorage, null, 2);
-            box.value = allData;
-            setStatus('Все данные из LS собраны в поле');
+       function exportAll() {
+            const data = {};
+            Object.keys(localStorage).forEach(key => {
+                let val = localStorage.getItem(key);
+                try {
+                    // Пытаемся превратить строку обратно в объект
+                    val = JSON.parse(val);
+                } catch (e) {
+                    // Если это обычная строка (не JSON), оставляем как есть
+                }
+                data[key] = val;
+            });
+            box.value = JSON.stringify(data);
+            setStatus('Все данные собраны (вложенный JSON распакован)');
         }
 
-        // Импорт всего хранилища
-        function importAll() {
+   function importAll() {
             try {
                 const data = JSON.parse(box.value);
                 Object.keys(data).forEach(key => {
-                    localStorage.setItem(key, data[key]);
+                    let val = data[key];
+                    // LS принимает только строки, поэтому объекты запаковываем обратно
+                    if (typeof val === 'object' && val !== null) {
+                        val = JSON.stringify(val);
+                    }
+                    localStorage.setItem(key, val);
                 });
                 setStatus('Данные успешно развернуты в LocalStorage');
             } catch (err) {

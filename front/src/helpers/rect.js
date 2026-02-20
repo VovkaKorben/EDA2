@@ -6,44 +6,17 @@ export class Rect {
     this.b = bottom;
   }
 
-  // Геттер для эмуляции свойства Width
-  get w() {
-    return this.r - this.l;
-  }
-  set w(value) {
-    this.r = this.l + value;
-  }
-  get h() {
-    return this.b - this.t;
-  }
-  set h(value) {
-    this.b = this.t + value;
-  }
+  get w() { return this.r - this.l; }
+  get h() { return this.b - this.t; }
+  get area() { return (this.r - this.l) * (this.b - this.t); }
 
+  set w(value) { this.r = this.l + value; }
+  set h(value) { this.b = this.t + value; }
   // Метод для проверки пустоты, как в Delphi
-  isEmpty() {
-    return (this.l >= this.r) || (this.t >= this.b);
-  }
+  isEmpty() { return (this.l >= this.r) || (this.t >= this.b); }
 
-  area() {
-    return (this.r - this.l) * (this.b - this.t);
 
-  }
-
-  intersects(other) {
-    return !(
-      other.left >= this.r ||
-      other.right <= this.l ||
-      other.top >= this.b ||
-      other.bottom <= this.t
-    );
-  }
-
-  inside(other) {
-    return this.l >= other.l
-      && this.t >= other.t &&
-      this.r <= other.r &&
-      this.b <= other.b;
-  }
-
+  intersects(other) { return !(other.l >= this.r || other.r <= this.l || other.t >= this.b || other.b <= this.t); }
+  inRect(other) { return this.l >= other.l && this.t >= other.t && this.r <= other.r && this.b <= other.b; }
+  // assign(other) { this.l = other.l; this.r = other.r; this.t = other.t; this.b = other.b; }
 }

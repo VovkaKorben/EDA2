@@ -585,6 +585,7 @@ const SchemaCanvas = forwardRef(({
 
 
                 // Вывод ID провода для отладки
+                /*
                 const start = wire.path[0];
                 const end = wire.path[wire.path.length - 1];
                 const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
@@ -596,7 +597,7 @@ const SchemaCanvas = forwardRef(({
                 ctx.textAlign = 'center';
                 ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
                 ctx.restore();
-
+*/
 
 
 
