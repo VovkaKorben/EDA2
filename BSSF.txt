@@ -63,6 +63,7 @@ Function ExpandBin(rect):
     freeRects.Add(newFree)
     // После расширения нужно выполнить слияние свободных областей,
     // чтобы "сшить" новую область с существующими у края.
+    StitchFreeRects(newFree)
 
 // ОБНОВЛЕНИЕ СВОБОДНЫХ ОБЛАСТЕЙ
 Function UpdateFreeRects(placedRect):
@@ -70,14 +71,20 @@ Function UpdateFreeRects(placedRect):
     For each free in freeRects:
         If RectsIntersect(free, placedRect):
             // Разрезаем текущий свободный прямоугольник на 4 части
-            If placedRect.x < free.x + free.w AND placedRect.x + placedRect.w > free.x:
+           // If placedRect.x < free.x + free.w AND placedRect.x + placedRect.w > free.x:
                 // Верхняя часть
                 If placedRect.y > free.y:
                     newList.Add(Rect(free.x, free.y, free.w, placedRect.y - free.y))
                 // Нижняя часть
                 If placedRect.y + placedRect.h < free.y + free.h:
                     newList.Add(Rect(free.x, placedRect.y + placedRect.h, free.w, free.y + free.h - (placedRect.y + placedRect.h)))
+                // Левая часть
+                If placedRect.x > free.x:
+                    newList.Add(Rect(free.x, free.y, placedRect.x - free.x, free.h))
             
+                // Правая часть
+                If placedRect.x + placedRect.w < free.x + free.w:
+                        newList.Add(Rect(placedRect.x + placedRect.w, free.y, free.x + free.w - (placedRect.x + placedRect.w), free.h))          
             // Аналогично для левой и правой частей...
         Else:
             newList.Add(free)
@@ -87,25 +94,152 @@ Function UpdateFreeRects(placedRect):
 
 
 
-    
-    // РАСШИРЕНИЕ КОНТЕЙНЕРА
-    const expandBin = (rect) => {
-        const canGrowRight = (binW + rect.w) * Math.max(binH, rect.h)
-        const canGrowDown = (binH + rect.h) * Math.max(binW, rect.w)
 
-        let newFree;
-        if (canGrowRight < canGrowDown) {
-            // Добавляем свободную область справа
-            newFree = Rect(binW, 0, rect.w, Math.max(binH, rect.h))
-            binW += rect.w
-            binH = Math.max(binH, rect.h)
+
+    Function CleanUp(list):
+    For i = 0 to list.Length - 1:
+        For j = 0 to list.Length - 1:
+            If i == j: Continue
+            
+            // Если область i полностью поглощена областью j — помечаем на удаление
+            If list[i].x >= list[j].x AND list[i].y >= list[j].y AND
+               list[i].x + list[i].w <= list[j].x + list[j].w AND
+               list[i].y + list[i].h <= list[j].y + list[j].h:
+                Mark list[i] as redundant
+                Break
+                
+    Return list without marked regions
+
+
+
+    Function StitchFreeRects(newArea):
+    // Перебираем с конца, чтобы безопасно удалять элементы
+    For i = freeRects.Count - 1 down to 0:
+        current = freeRects[i]
+        
+        // Пропускаем саму себя
+        If current == newArea: Continue
+
+        // 1. Попытка слияния по горизонтали (если стоят бок о бок)
+        If current.y == newArea.y AND current.h == newArea.h:
+            // Если текущий прямоугольник примыкает СЛЕВА к новому
+            If current.x + current.w == newArea.x:
+                newArea.x = current.x
+                newArea.w += current.w
+                freeRects.RemoveAt(i)
+            // Если текущий прямоугольник примыкает СПРАВА к новому
+            Else If newArea.x + newArea.w == current.x:
+                newArea.w += current.w
+                freeRects.RemoveAt(i)
+
+        // 2. Попытка слияния по вертикали (если стоят друг на друге)
+        Else If current.x == newArea.x AND current.w == newArea.w:
+            // Если текущий прямоугольник примыкает СВЕРХУ к новому
+            If current.y + current.h == newArea.y:
+                newArea.y = current.y
+                newArea.h += current.h
+                freeRects.RemoveAt(i)
+            // Если текущий прямоугольник примыкает СНИЗУ к новому
+            Else If newArea.y + newArea.h == current.y:
+                newArea.h += current.h
+                freeRects.RemoveAt(i)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                ---------------------------
+
+Function CleanUp(freeRects):
+    For i = 0 to freeRects.Length - 1:
+        For j = i + 1 to freeRects.Length - 1:
+            // Если i-тый внутри j-того — помечаем i на удаление
+            If IsContained(freeRects[i], freeRects[j]):
+    freeRects[i].isRedundant = true
+    break
+
+            // Если j-тый внутри i-того — помечаем j
+            If IsContained(freeRects[j], freeRects[i]):
+    freeRects[j].isRedundant = true
+
+    // Удаляем все помеченные объекты из списка
+    Return freeRects.Filter(r => !r.isRedundant)
+
+
+Function ExpandBin(rect):
+    oldW = binW
+    oldH = binH
+
+    // Выбираем стратегию расширения (минимизация площади)
+    costRight = (binW + rect.w) * max(binH, rect.h)
+    costDown = (binH + rect.h) * max(binW, rect.w)
+
+    if (costRight < costDown):
+        extensionW = rect.w
+    binW += extensionW
+    binH = max(binH, rect.h)
+
+    // 1. Сшивание: растягиваем существующие области вправо
+    for each f in freeRects:
+        if (f.x + f.w == oldW):
+            f.w += extensionW
+
+    // 2. Добавление новой чистой области в расширенное пространство
+    // (если высота контейнера выросла, учитываем и это)
+    freeRects.Add(Rect(oldW, 0, extensionW, binH))
+    else:
+extensionH = rect.h
+binH += extensionH
+binW = max(binW, rect.w)
+
+// 1. Сшивание: растягиваем существующие области вниз
+for each f in freeRects:
+    if (f.y + f.h == oldH):
+        f.h += extensionH
+
+// 2. Добавление новой области снизу
+freeRects.Add(Rect(0, oldH, binW, extensionH))
+
+// Удаляем избыточные области, которые стали частью растянутых
+CleanUp(freeRects)
+const updateFreeRects = (placedRect) => {
+    const newList = [];
+    for (const free of freeRects) {
+        if (free.intersects(placedRect)) {
+            // cut first free rect for 4 pieces
+            if (placedRect.l < free.r && placedRect.r > free.l) {
+                if (placedRect.t > free.t) { // top
+                    newList.Add(Rect(free.l, free.t, free.w, placedRect.t - free.t))
+                }
+                if (placedRect.b < free.b) { // bottom
+                    newList.Add(Rect(free.l, placedRect.b, free.w, free.b - placedRect.b))
+                }
+                // Аналогично для левой и правой частей...
+
+                // Вставить в UpdateFreeRects после логики для верхней и нижней частей:
+
+                // Левая часть
+                if (placedRect.x > free.x):
+                    newList.Add(Rect(free.x, free.y, placedRect.x - free.x, free.h))
+
+                // Правая часть
+                if (placedRect.x + placedRect.w < free.x + free.w):
+                    newList.Add(Rect(placedRect.x + placedRect.w, free.y, free.x + free.w - (placedRect.x + placedRect.w), free.h))
+
+
+            }
+
         } else {
-            // Добавляем свободную область снизу
-            newFree = Rect(0, binH, Math.max(binW, rect.w), rect.h);
-            binH += rect.h
-            binW = Math.max(binW, rect.w)
+            newList.Add(free)
         }
-        freeRects.Add(newFree)
-        // После расширения нужно выполнить слияние свободных областей,
-        // чтобы "сшить" новую область с существующими у края.
     }
+}                

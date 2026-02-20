@@ -2,9 +2,10 @@ import { API_URL } from './utils.js';
 // import { prettify } from './debug.js';
 import {
     expandPoint, getPrimitiveBounds, expandBounds, extractCoords, turtleToParams, pinsToParams, expandBoundsByPoint,
-    getRectWidth, getRectHeight
+    getRectWidth, getRectHeight,
+    floatEqual
 } from './geo.js';
-import { prettify } from './debug.js';
+// import { prettify } from './debug.js';
 import { Rect } from './rect.js';
 
 // 1. берем черепашку,считаем границы
@@ -122,7 +123,7 @@ const expandPackages = (packages) => {
 const packRects = (inputRects) => {
     let binW = 0;
     let binH = 0;
-    const freeRects = [];
+    let freeRects = [];
     const packedRects = [];
 
     // place find (BSSF)
@@ -145,95 +146,141 @@ const packRects = (inputRects) => {
         return bestRect
     }
 
+    // РАСШИРЕНИЕ КОНТЕЙНЕРА
+    const expandBin = (rect) => {
+        const canGrowRight = (binW + rect.w) * Math.max(binH, rect.h)
+        const canGrowDown = (binH + rect.h) * Math.max(binW, rect.w)
+        let newFree;
+        if (canGrowRight < canGrowDown) {
+            // Добавляем свободную область справа
+            newFree = Rect(binW, 0, rect.w, Math.max(binH, rect.h))
+            binW += rect.w
+            binH = Math.max(binH, rect.h)
+        } else {
+            // Добавляем свободную область снизу
+            newFree = Rect(0, binH, Math.max(binW, rect.w), rect.h)
+            binH += rect.h
+            binW = Math.max(binW, rect.w)
+        }
+        freeRects.Add(newFree)
+        // После расширения нужно выполнить слияние свободных областей,
+        // чтобы "сшить" новую область с существующими у края.
+        stitchFreeRects(newFree)
+    }
 
 
-Function CleanUp(freeRects):
-    For i = 0 to freeRects.Length - 1:
-        For j = i + 1 to freeRects.Length - 1:
-            // Если i-тый внутри j-того — помечаем i на удаление
-            If IsContained(freeRects[i], freeRects[j]):
-                freeRects[i].isRedundant = true
-                break
-            
-            // Если j-тый внутри i-того — помечаем j
-            If IsContained(freeRects[j], freeRects[i]):
-                freeRects[j].isRedundant = true
-
-    // Удаляем все помеченные объекты из списка
-    Return freeRects.Filter(r => !r.isRedundant)
-
-
-Function ExpandBin(rect):
-    oldW = binW
-    oldH = binH
-    
-    // Выбираем стратегию расширения (минимизация площади)
-    costRight = (binW + rect.w) * max(binH, rect.h)
-    costDown = (binH + rect.h) * max(binW, rect.w)
-
-    if (costRight < costDown):
-        extensionW = rect.w
-        binW += extensionW
-        binH = max(binH, rect.h)
-        
-        // 1. Сшивание: растягиваем существующие области вправо
-        for each f in freeRects:
-            if (f.x + f.w == oldW):
-                f.w += extensionW
-        
-        // 2. Добавление новой чистой области в расширенное пространство
-        // (если высота контейнера выросла, учитываем и это)
-        freeRects.Add(Rect(oldW, 0, extensionW, binH))
-    else:
-        extensionH = rect.h
-        binH += extensionH
-        binW = max(binW, rect.w)
-        
-        // 1. Сшивание: растягиваем существующие области вниз
-        for each f in freeRects:
-            if (f.y + f.h == oldH):
-                f.h += extensionH
-        
-        // 2. Добавление новой области снизу
-        freeRects.Add(Rect(0, oldH, binW, extensionH))
-    
-    // Удаляем избыточные области, которые стали частью растянутых
-    CleanUp(freeRects)
+    // ОБНОВЛЕНИЕ СВОБОДНЫХ ОБЛАСТЕЙ
     const updateFreeRects = (placedRect) => {
         const newList = [];
-        for (const free of freeRects) {
+        for (const free of freeRects)
             if (free.intersects(placedRect)) {
-                // cut first free rect for 4 pieces
-                if (placedRect.l < free.r && placedRect.r > free.l) {
-                    if (placedRect.t > free.t) { // top
-                        newList.Add(Rect(free.l, free.t, free.w, placedRect.t - free.t))
-                    }
-                    if (placedRect.b < free.b) { // bottom
-                        newList.Add(Rect(free.l, placedRect.b, free.w, free.b - placedRect.b))
-                    }
-                    // Аналогично для левой и правой частей...
+                // cut first free into 4 pieces
 
-                    // Вставить в UpdateFreeRects после логики для верхней и нижней частей:
-
-                    // Левая часть
-                    if (placedRect.x > free.x):
-                        newList.Add(Rect(free.x, free.y, placedRect.x - free.x, free.h))
-
-                    // Правая часть
-                    if (placedRect.x + placedRect.w < free.x + free.w):
-                        newList.Add(Rect(placedRect.x + placedRect.w, free.y, free.x + free.w - (placedRect.x + placedRect.w), free.h))
-
-
+                if (placedRect.t > free.t) {// top
+                    newList.Add(Rect(free.x, free.y, free.w, placedRect.y - free.y))
                 }
 
+                if (placedRect.b < free.b) {// bottom
+                    newList.Add(Rect(free.x, placedRect.y + placedRect.h, free.w, free.y + free.h - (placedRect.y + placedRect.h)))
+                }
+
+                if (placedRect.l > free.l) { // left
+                    newList.Add(Rect(free.x, free.y, placedRect.x - free.x, free.h))
+                }
+
+
+                if (placedRect.r < free.r) { // right
+                    newList.Add(Rect(placedRect.x + placedRect.w, free.y, free.x + free.w - (placedRect.x + placedRect.w), free.h))
+                }
             } else {
                 newList.Add(free)
             }
+
+        // Удаляем дубликаты и те, что внутри других
+        freeRects = cleanUp(newList)
+    }
+
+
+    const cleanUp = (list) => {
+        const listLen = list.Length;
+        const redundant = new Set();
+        for (let i = 0; i < listLen; i++) {
+            for (let j = 0; j < listLen; j++) {
+
+                if (i === j) continue;
+                // Если область i полностью поглощена областью j — помечаем на удаление
+                if (list[i].inside(list[i])) {
+                    redundant.add(i);
+                }
+                const cleaned = list.filter((r, i) => redundant.has(i));
+                return cleaned;
+            }
         }
     }
-    // Sort inputRects by Area descending
-    inputRects.sort((a, b) => a.size[0] * a.size[1] < b.size[0] * b.size[1]);
 
+
+
+    const stitchFreeRects = (newArea) => {
+        // Перебираем с конца, чтобы безопасно удалять элементы
+        for (let i = freeRects.length - 1; i >= 0; i--) {
+            const current = freeRects[i];
+
+            // Пропускаем саму себя
+            if (current === newArea) continue;
+
+            // 1. Попытка слияния по горизонтали (если стоят бок о бок)
+            if (floatEqual(current.y, newArea.y) && floatEqual(current.h, newArea.h)) {
+                // Если текущий прямоугольник примыкает СЛЕВА к новому
+                if (floatEqual(current.r, newArea.x)) {
+                    newArea.l = current.l
+                    newArea.w += current.w
+                    freeRects.RemoveAt(i)
+                }
+                // Если текущий прямоугольник примыкает СПРАВА к новому
+                else if (floatEqual(newArea.r, current.x)) {
+                    newArea.w += current.w
+                    freeRects.RemoveAt(i)
+                }
+            }
+
+            // 2. Попытка слияния по вертикали (если стоят друг на друге)
+            else if (current.x == newArea.x && current.w == newArea.w) {
+                // Если текущий прямоугольник примыкает СВЕРХУ к новому
+                if (floatEqual(current.b, newArea.y)) {
+                    newArea.y = current.y
+                    newArea.h += current.h
+                    freeRects.RemoveAt(i)
+                }
+                // Если текущий прямоугольник примыкает СНИЗУ к новому
+                else if (floatEqual(newArea.b, current.y)) {
+                    newArea.h += current.h
+                    freeRects.RemoveAt(i)
+                }
+            }
+        }
+    }
+
+
+    // Sort inputRects by Area descending
+    inputRects.sort((a, b) => a.area < b.area);
+
+    for (let rect of inputRects) {
+        // 1. Пытаемся найти место в текущих границах
+        let bestFreeRect = findBestFit(rect, freeRects)
+
+        // 2. Если место не найдено, расширяем контейнер
+        if (bestFreeRect === null) {
+            expandBin(rect)
+            bestFreeRect = findBestFit(rect, freeRects)
+        }
+        // 3. Размещаем прямоугольник
+        rect.x = bestFreeRect.x
+        rect.y = bestFreeRect.y
+        packedRects.Add(rect)
+
+        // 4. Обновляем список свободных областей (Split & Prune)
+        updateFreeRects(rect)
+    }
 };
 export const doRoute = async (data) => {
     try {

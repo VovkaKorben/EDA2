@@ -10,8 +10,14 @@ export class Rect {
   get w() {
     return this.r - this.l;
   }
+  set w(value) {
+    this.r = this.l + value;
+  }
   get h() {
     return this.b - this.t;
+  }
+  set h(value) {
+    this.b = this.t + value;
   }
 
   // Метод для проверки пустоты, как в Delphi
@@ -31,6 +37,13 @@ export class Rect {
       other.top >= this.b ||
       other.bottom <= this.t
     );
+  }
+
+  inside(other) {
+    return this.l >= other.l
+      && this.t >= other.t &&
+      this.r <= other.r &&
+      this.b <= other.b;
   }
 
 }
