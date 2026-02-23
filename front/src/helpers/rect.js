@@ -17,6 +17,7 @@ export class Rect {
             this.r = right;
             this.b = bottom;
         }
+        return this;
     }
 
     get w() { return this.r - this.l; }
@@ -27,12 +28,19 @@ export class Rect {
     set h(value) { this.b = this.t + value; }
     // Метод для проверки пустоты, как в Delphi
     //isEmpty() { return (this.l >= this.r) || (this.t >= this.b); }
-    move(dx, dy) {
-        this.l += dx;
-        this.r += dx;
-        this.t += dy;
-        this.b += dy;
+    move(dx, dy = dx) {
+        if (dx instanceof Point) {
+            this.l += dx.x;
+            this.r += dx.x;
+            this.t += dx.y;
+            this.b += dx.y;
 
+        } else {
+            this.l += dx;
+            this.r += dx;
+            this.t += dy;
+            this.b += dy;
+        }
     }
 
     multiply(mx, my = mx) {
@@ -84,23 +92,46 @@ export class Rect {
 
 export class Point {
     constructor(x, y) {
-        if (x instanceof Point) {
+        if (x instanceof Array) {
+            this.x = x[0];
+            this.y = x[1];
+        } else if (x instanceof Point) {
             this.x = x.x;
             this.y = x.y;
         } else {
             this.x = x;
             this.y = y;
         }
+        return this;
     }
     move(dx, dy) {
-        this.x += dx;
-        this.y += dy;
+        if (dx instanceof Point) {
+            this.x += dx.x;
+            this.y += dx.y;
+        } else {
+            this.x += dx;
+            this.y += dy;
+        }
+    }
+    subtract(dx, dy) {
+        if (dx instanceof Point) {
+            this.x -= dx.x;
+            this.y -= dx.y;
+        } else {
+            this.x -= dx;
+            this.y -= dy;
+        }
     }
     multiply(mx, my = mx) {
+
         this.x *= mx;
         this.y *= my;
     }
+    divide(mx, my = mx) {
 
+        this.x /= mx;
+        this.y /= my;
+    }
     rotate(rotateIndex) {
         switch (rotateIndex) {
             case 0: break;
@@ -118,5 +149,9 @@ export class Point {
     }
     toJSON() {
         return [this.x, this.y];
+    }
+    toFixed(decimals = 2) {
+        return `${this.x.toFixed(decimals)},${this.y.toFixed(decimals)}`;
+
     }
 }

@@ -3,7 +3,13 @@ import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperat
 import { ObjectType, DragModeType, DrawColor } from '../helpers/utils.js';
 import { drawElement, drawPins, drawName, drawWire, adjustPoint, drawGridDebug, adjustCtx, GRID_SIZE, dpr } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
-import { clamp, addPoint, pointsDistance, transformRect, ptInRect, roundPoint, isPointEqual } from '../helpers/geo.js';
+import {
+
+    _toFixed,
+    clamp,
+    add,
+    addPoint, pointsDistance, transformRect, ptInRect, roundPoint, isPointEqual
+} from '../helpers/geo.js';
 import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
 import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath, mergePaths } from '../helpers/astar.js';
 import { Rect, Point } from '../helpers/rect.js';
@@ -14,7 +20,7 @@ const _initZoom = 1;
 const DEFAULT_VIEW = {
     zoomIndex: _initZoom,
     zoom: zoomLevels[_initZoom],
-    x: 0, y: 0,
+    pos: { x: 0, y: 0 },
     interval: GRID_SIZE * zoomLevels[_initZoom]
 };
 
@@ -37,9 +43,12 @@ const SchemaCanvas = forwardRef(({
 
     const schemaRef = useRef(schemaElements);
     const selectedRef = useRef(selected);
-    const [view, setView] = useState(() => { const saved = localStorage.getItem('view'); return saved ? JSON.parse(saved) : DEFAULT_VIEW; });
+    const [view, setView] = useState(() => {
+        const saved = localStorage.getItem('view');
+        return saved ? JSON.parse(saved) : DEFAULT_VIEW;
+    });
     const viewRef = useRef(view);
-    const lastPos = useRef(false);
+    const lastPos = useRef(null);
 
 
     useEffect(() => { schemaRef.current = schemaElements; }, [schemaElements]);
@@ -52,8 +61,8 @@ const SchemaCanvas = forwardRef(({
 
 
     // debug
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-    const [parrotsPos, setParrotsPos] = useState([0, 0]);
+    const [mousePos, setMousePos] = useState([0, 0])
+    const [parrotsPos, setParrotsPos] = useState([0, 0])
 
 
 
@@ -114,25 +123,18 @@ const SchemaCanvas = forwardRef(({
 
     const screenToParrots = useCallback((screenX, screenY) => {
         const canvasRect = canvasRef.current.getBoundingClientRect();
-        const { x, y, interval } = viewRef.current;
-        const parrots = new Point(screenX, screenY);
-        parrots.move(- canvasRect.left, - canvasRect.top);
-        parrots.multiply(1 / interval);
-        parrots.move(x, y);
-        //const parrotX = (screenX - canvasRect.left) / interval + x;
-        //const parrotY = (screenY - canvasRect.top) / interval + y;
-        return parrots;
+        const { pos, interval } = viewRef.current;
+        const parrotX = (screenX - canvasRect.left) / interval + pos.x;
+        const parrotY = (screenY - canvasRect.top) / interval + pos.y;
+        return [parrotX, parrotY];
     }, []);
-    const parrotsToScreen = (parrot) => {
+    const parrotsToScreen = (parrots) => {
 
         //const [px, py] = parrots;
-        const { x, y, interval } = viewRef.current;
-        const screen = new Point (parrot);
-        screen.move(-x, -y);
-        screen.multiply(interval);
-
-        //const screenX = (px - x) * interval;        const screenY = (py - y) * interval;
-        return screen;
+        const { pos, interval } = viewRef.current;
+        const screenX = (parrots.x - pos.x) * interval;
+        const screenY = (parrots.y - pos.y) * interval;
+        return [screenX, screenY];
     };
 
 
@@ -176,8 +178,8 @@ const SchemaCanvas = forwardRef(({
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             if (libElement) {
-                const elemRect = new Rect(libElement.bounds[elem.rotate]);
-                elemRect.move(elem.pos);
+                let elemRect = [...libElement.bounds[elem.rotate]];
+                elemRect = add(elemRect, elem.pos);
                 // const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
                 if (checkPoint.inRect(elemRect)) {
                     return { elementId: elem.elementId };
@@ -404,76 +406,6 @@ const SchemaCanvas = forwardRef(({
 
     }, [activeRoute, onWiresChanged, selectedChanged]);
 
-    // ----------------------------------------         MOUSE DOWN
-    // -----------------------------------------------------------
-    // -----------------------------------------------------------
-    const handleMouseDown = useCallback((e) => {
-        // return;
-        if (e.button !== DRAG_BUTTON) return;
-        const parrotPoint = screenToParrots(e.clientX, e.clientY);
-        //const obj = { type: ObjectType.NONE }
-        const obj = getObjectUnderCursor(parrotPoint);
-
-
-        switch (dragMode.current) {
-
-
-            case DragModeType.ROUTING: {
-                switch (obj.type) {
-
-                    case ObjectType.PIN:
-                    case ObjectType.WIRE: {
-                        createWire(selected, obj);
-                        dragMode.current = DragModeType.NONE;
-
-                        break;
-                    }
-
-
-                }
-                break;
-            }
-            case DragModeType.NONE: {
-                selectedChanged(obj);
-                switch (obj.type) {
-                    case ObjectType.ELEMENT:
-                        {
-                            dragMode.current = DragModeType.ELEMENT;
-                            const elem = schemaRef.current.elements[obj.elementId];
-                            // Запоминаем стартовую позицию мыши и элемента
-                            lastPos.current = {
-                                startX: e.clientX,
-                                startY: e.clientY,
-                                elemStartX: elem.pos[0],
-                                elemStartY: elem.pos[1]
-                            }; break;
-                        }
-
-                    case ObjectType.PIN: {
-                        const pinCoords = getPinCoords(obj);
-                        const resultInitAStar = initAStar(pinCoords);
-                        if (resultInitAStar) dragMode.current = DragModeType.ROUTING;
-                        // lastPos.current = { x: e.clientX, y: e.clientY };
-                        break;
-                    };
-
-                    case ObjectType.NONE: {
-                        dragMode.current = DragModeType.SCROLL;
-                        // Запоминаем стартовую позицию мыши и камеры
-                        lastPos.current = {
-                            startX: e.clientX,
-                            startY: e.clientY,
-                            parrotStartX: viewRef.current.x,
-                            parrotStartY: viewRef.current.y
-                        };
-                        break;
-                    };
-
-                };
-                break;
-            }
-        }
-    }, [screenToParrots, getObjectUnderCursor, selectedChanged, initAStar, selected, createWire, getPinCoords]);
 
 
     // ----------------------------------------         DRAW
@@ -494,10 +426,10 @@ const SchemaCanvas = forwardRef(({
             ctx.lineWidth = 1;
 
 
-            const parrotX = Math.ceil(view.x);
-            const parrotY = Math.ceil(view.y);
-            const startX = (parrotX - view.x) * view.interval;
-            const startY = (parrotY - view.y) * view.interval;
+            const parrotX = Math.ceil(view.pos.x);
+            const parrotY = Math.ceil(view.pos.y);
+            const startX = (parrotX - view.pos.x) * view.interval;
+            const startY = (parrotY - view.pos.y) * view.interval;
             try {
                 // thin lines
                 ctx.beginPath();
@@ -603,7 +535,7 @@ const SchemaCanvas = forwardRef(({
                 ctx.textAlign = 'center';
                 ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
                 ctx.restore();
-*/
+            */
 
 
 
@@ -632,12 +564,13 @@ const SchemaCanvas = forwardRef(({
             ctx.beginPath();
             // tconn.forEach(pt => ctx.arc(...parrotsToScreen(pt), 5, 0, 2 * Math.PI));
 
-            tconn.forEach(pt => {
-                const [sx, sy] = parrotsToScreen(pt);
-
-                ctx.moveTo(sx + 5, sy);
-                ctx.arc(sx, sy, 5, 0, 2 * Math.PI);
+            tconn.forEach(parrot => {
+                let drawPoint = parrotsToScreen(parrot)
+                drawPoint = add(drawPoint, [5, 0])
+                // drawPoint.move(drawPoint.x + 5, drawPoint.y);
+                ctx.arc(...drawPoint, 5, 0, 2 * Math.PI);
             });
+
 
             ctx.fill();
 
@@ -680,7 +613,7 @@ const SchemaCanvas = forwardRef(({
                     };
                     drawElement(ctx, toDraw);
                     drawPins(toDraw, ctx);
-                     drawName(toDraw, ctx);
+                    drawName(toDraw, ctx);
                 }
             });
         }
@@ -852,16 +785,13 @@ const SchemaCanvas = forwardRef(({
     // WHEEL -------------------------------------------------------------------
     const handleWheel = (e) => {
         const canvasRect = e.currentTarget.getBoundingClientRect()
-        const mousePos = {
-            x: e.clientX - canvasRect.left,
-            y: e.clientY - canvasRect.top
-        }
+        const mousePos = new Point(e.clientX, e.clientY).subtract(canvasRect.left, canvasRect.top);
+
         const wheel_dir = Math.sign(e.deltaY);
         setView(prev => {
             const newZoomIndex = clamp(prev.zoomIndex + wheel_dir, 0, zoomLevels.length - 1);
             const newZoom = zoomLevels[newZoomIndex];
             const newInterval = newZoom * GRID_SIZE;
-
             const new_view = {
                 zoomIndex: newZoomIndex,
                 zoom: newZoom,
@@ -919,6 +849,71 @@ const SchemaCanvas = forwardRef(({
     const handleDragOver = (e) => {
         e.preventDefault();
     };
+    // ----------------------------------------         MOUSE DOWN
+    // -----------------------------------------------------------
+    // -----------------------------------------------------------
+    const handleMouseDown = useCallback((e) => {
+        // return;
+        if (e.button !== DRAG_BUTTON) return;
+        const parrotPoint = screenToParrots(e.clientX, e.clientY);
+        //const obj = { type: ObjectType.NONE }
+        const obj = getObjectUnderCursor(parrotPoint);
+
+
+        switch (dragMode.current) {
+
+
+            case DragModeType.ROUTING: {
+                switch (obj.type) {
+
+                    case ObjectType.PIN:
+                    case ObjectType.WIRE: {
+                        createWire(selected, obj);
+                        dragMode.current = DragModeType.NONE;
+
+                        break;
+                    }
+
+
+                }
+                break;
+            }
+            case DragModeType.NONE: {
+                selectedChanged(obj);
+                switch (obj.type) {
+                    case ObjectType.ELEMENT:
+                        {
+                            dragMode.current = DragModeType.ELEMENT;
+                            const elem = schemaRef.current.elements[obj.elementId];
+                            // Запоминаем стартовую позицию мыши и элемента
+                            lastPos.current = {
+                                start: new Point(e.clientX, e.clientY),
+                                elemStart: new Point(elem.pos)
+                            }; break;
+                        }
+
+                    case ObjectType.PIN: {
+                        const pinCoords = getPinCoords(obj);
+                        const resultInitAStar = initAStar(pinCoords);
+                        if (resultInitAStar) dragMode.current = DragModeType.ROUTING;
+                        break;
+                    };
+
+                    case ObjectType.NONE: {
+                        dragMode.current = DragModeType.SCROLL;
+                        // Запоминаем стартовую позицию мыши и камеры
+                        lastPos.current = {
+                            start: new Point(e.clientX, e.clientY),
+                            parrotStart: new Point(viewRef.current.pos)
+                        };
+                        break;
+                    };
+
+                };
+                break;
+            }
+        }
+    }, [screenToParrots, getObjectUnderCursor, selectedChanged, initAStar, selected, createWire, getPinCoords]);
 
 
     // ----------------------------------------         MOUSE MOVE
@@ -926,49 +921,66 @@ const SchemaCanvas = forwardRef(({
     // -----------------------------------------------------------
     const handleMouseMove = (e) => {
 
-        const pt = screenToParrots(e.clientX, e.clientY);
-        const obj = getObjectUnderCursor(pt);
+        const parrot = screenToParrots(e.clientX, e.clientY);
+        const obj = getObjectUnderCursor(parrot);
         hoveredChanged(obj);
         //if(dragMode.current === DragModeType.NONE) { return;        }
 
         // DEBUG
         const canvasRect = canvasRef.current.getBoundingClientRect();
-        setMousePos({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top });
-        setParrotsPos(roundPoint(pt));
+        setMousePos(() => {
+            const pt = new Point(e.clientX, e.clientY);
+            pt.move(- canvasRect.left, - canvasRect.top);
+            return pt;
+            //       { x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top }
+        });
+
+        setParrotsPos(() => {
+            const pt = new Point(parrot);
+            pt.round();
+            return pt;
+        });
+
         // DEBUG END
+        if (lastPos.current) {
+            const { start } = lastPos.current;
+            const { interval } = viewRef.current;
+            switch (dragMode.current) {
+                case DragModeType.SCROLL: {
+                    const parrotStart = new Point(lastPos.current.parrotStart);
+                    const pt = new Point(e.clientX, e.clientY);
+                    pt.subtract(start);
+                    pt.multiply(1 / interval);
+                    parrotStart.subtract(pt);
+                    viewRef.current.pos = new Point(parrotStart);
+                    //viewRef.current.x = parrotStartX - (e.clientX - startX) / interval;
+                    //viewRef.current.y = parrotStartY - (e.clientY - startY) / interval;
+                    setView({ ...viewRef.current });
+                } break;
 
-        const { startX, startY } = lastPos.current;
-        const { interval } = viewRef.current;
-        switch (dragMode.current) {
-            case DragModeType.SCROLL: {
-                const { parrotStartX, parrotStartY } = lastPos.current;
-                viewRef.current.x = parrotStartX - (e.clientX - startX) / interval;
-                viewRef.current.y = parrotStartY - (e.clientY - startY) / interval;
-                setView({ ...viewRef.current });
-            } break;
+                case DragModeType.ELEMENT: {
+                    const { elemStartX, elemStartY, startX, startY } = lastPos.current;
+                    const { interval } = viewRef.current;
+                    const elementId = selectedRef.current.elementId;
+                    const newElem = { ...schemaRef.current.elements[elementId] };
 
-            case DragModeType.ELEMENT: {
-                const { elemStartX, elemStartY, startX, startY } = lastPos.current;
-                const { interval } = viewRef.current;
-                const elementId = selectedRef.current.elementId;
-                const newElem = { ...schemaRef.current.elements[elementId] };
+                    const dx = (e.clientX - startX) / interval;
+                    const dy = (e.clientY - startY) / interval;
+                    newElem.pos = [Math.round(elemStartX + dx), Math.round(elemStartY + dy)];
+                    /*    newElem.pos = [
+                            elemStartX + (e.clientX - startX) / zoom,
+                            elemStartY + (e.clientY - startY) / zoom
+                        ];*/
+                    onElemChanged(newElem, false);
+                    break;
+                }
 
-                const dx = (e.clientX - startX) / interval;
-                const dy = (e.clientY - startY) / interval;
-                newElem.pos = [Math.round(elemStartX + dx), Math.round(elemStartY + dy)];
-                /*    newElem.pos = [
-                        elemStartX + (e.clientX - startX) / zoom,
-                        elemStartY + (e.clientY - startY) / zoom
-                    ];*/
-                onElemChanged(newElem, false);
-                break;
-            }
-
-            case DragModeType.ROUTING: {
-                // const roundedTarget = roundPoint(pt);
-                const targetPos = (obj.type === ObjectType.WIRE) ? obj.pos : roundPoint(pt);
-                routeAStar(targetPos);
-                break;
+                case DragModeType.ROUTING: {
+                    // const roundedTarget = roundPoint(pt);
+                    const targetPos = (obj.type === ObjectType.WIRE) ? obj.pos : roundPoint(parrot);
+                    routeAStar(targetPos);
+                    break;
+                }
             }
         }
     };
@@ -984,7 +996,13 @@ const SchemaCanvas = forwardRef(({
 
     return (
         <React.Fragment>
-            <div className='dbg-fixed'>{`zIdx:${view.zoomIndex} zVal:${view.zoom} | V: [${view.x.toFixed(2)}, ${view.y.toFixed(2)}] | Mouse: [${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}] | Parrots: [${parrotsPos[0]}, ${parrotsPos[1]}]`}</div>
+            <div className='dbg-fixed'>
+                {`zIdx:${view.zoomIndex} zVal:${view.zoom}`}                <br />
+                {`V: ${_toFixed(view.pos)}`} <br />
+
+                {`Mouse: ${_toFixed(mousePos)}`} <br />
+                {`Parrots: ${_toFixed(parrotsPos, 0)}`}
+            </div>
             {/* hovered: {prettify(hovered, 0)} */}
             <canvas
                 onDragOver={handleDragOver}

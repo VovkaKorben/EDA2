@@ -5,7 +5,7 @@ import sqlite3 from 'sqlite3';
 
 import { errorHandler, notFound } from './middleware/error.js';
 import { openDb } from './dbUtils.js';
-const API_PORT = 3100;
+const API_PORT = 3333;
 const app = express();
 app.use(cors());
 app.use(express.json()); // Parse JSON bodies

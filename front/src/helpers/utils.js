@@ -1,4 +1,4 @@
-export const API_URL = 'http://localhost:3100/api/';
+export const API_URL = 'http://localhost:3333/api/';
 
 export const ObjectType = Object.freeze({
     NONE: 'NONE',

@@ -1,3 +1,4 @@
+import { prettify } from './debug.js';
 import { GRID_SIZE } from './draw.js';
 import { Rect, Point } from './rect.js';
 import { API_URL } from './utils.js';
@@ -35,11 +36,47 @@ export const pinsToPoints = (pinString) => {
     pinsGroup = pinsGroup.replace(/\s/g, '');
     pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
     for (const pin of pinsGroup) {
-        rawPins[pin[1]] = new Point(+pin[2], +pin[3]);//rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
+        rawPins[pin[1]] = [+pin[2], +pin[3]];
     }
     return rawPins;
 
 };
+export const _toFixed = (value, decimals=2) => {
+    const fixed = value.map(x => `${x.toFixed(decimals)}`);
+    return fixed.join(',');
+}
+
+export const rotate = (point, rotateIndex) => {
+    switch (rotateIndex) {
+        case 0: return [point[0], point[1]]
+        case 1: return [-point[1], point[0]]
+        case 2: return [-point[0], -point[1]]
+        case 3: return [point[1], -point[0]]
+    }
+}
+export const union = (rect, other) => {
+    const otherLength = other.length;
+    return [
+        Math.min(rect[0], other[0]),
+        Math.min(rect[1], other[1]),
+        Math.max(rect[2], other[2 % otherLength]),
+        Math.max(rect[3], other[3 % otherLength])
+    ];
+}
+
+export const divide = (figure, value) => {
+
+    return figure.map(d => d / value);
+}
+export const add = (figure, other) => {
+    const otherLength = other.length;
+    const result = figure.map((v, i) => {
+        const otherIndex = i % otherLength;
+        return v + other[otherIndex];
+    });
+    return result;
+}
+
 export const getPrimitiveBounds = (prim) => {
 
 
@@ -50,34 +87,34 @@ export const getPrimitiveBounds = (prim) => {
         case 'R': { // rectangle
             const [x, y, w, h] = prim.params;
             const x2 = x + w, y2 = y + h;
-            return new Rect(
+            return [
                 Math.min(x, x2), Math.min(y, y2),
                 Math.max(x, x2), Math.max(y, y2)
-            );
+            ];
         }
 
         case 'L': // line
             {
                 const [x, y, x2, y2] = prim.params;
-                return new Rect(
+                return [
                     Math.min(x, x2), Math.min(y, y2),
                     Math.max(x, x2), Math.max(y, y2)
-                );
+                ];
             }
         case 'C': // circle
         case 'A': // arc - for simplification
             {
                 const [x, y, r] = prim.params;
-                return new Rect(x - r, y - r, x + r, y + r);
+                return [x - r, y - r, x + r, y + r];
             }
         case 'P': // polyline/polygon
             {
-                const primBounds = new Rect(Infinity, Infinity, -Infinity, -Infinity);
+                let primBounds = [Infinity, Infinity, -Infinity, -Infinity];
 
 
                 for (let p = 0; p < prim.params.length - 1; p += 2) {
-                    const point = new Point(...prim.params.slice(p, p + 2));
-                    primBounds.addPoint(point);
+                    const point = [...prim.params.slice(p, p + 2)];
+                    primBounds = union(primBounds, point);
                 }
                 return primBounds;
 
@@ -253,21 +290,17 @@ export const LoadElems = async (elems, errors) => {
             return;
         }
         let cnt = 0;
-        result.data.forEach((rawElem) => {
+        result.data.forEach((rawLib) => {
             // explode primitives to objects
-            const rawPrimitives = turtleToParams(rawElem.turtle);
+            const rawPrimitives = turtleToParams(rawLib.turtle);
 
             // explode pins to coords
-            const rawPins = pinsToPoints(rawElem.pins);
-
-            // Object.keys(rawPins).forEach(k => {                rawPins[k] = multiplyPoint(rawPins[k], 1 / GRID_SIZE)            });
-
-
+            const rawPins = pinsToPoints(rawLib.pins);
 
             // prepare for element rotating
             const turtle = Array.from({ length: 4 }, () => []);
             const pins = Array.from({ length: 4 }, () => ({}));
-            const bounds = Array.from({ length: 4 }, () => new Rect(Infinity, Infinity, -Infinity, -Infinity));
+            const bounds = Array.from({ length: 4 }, () => [Infinity, Infinity, -Infinity, -Infinity]);
 
             for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
 
@@ -279,16 +312,15 @@ export const LoadElems = async (elems, errors) => {
 
                     // get bounds for current and accumulate
                     const primitiveBounds = getPrimitiveBounds(rotatedPrimitive);
-                    bounds[rotateIndex].union(primitiveBounds);
+                    bounds[rotateIndex] = union(bounds[rotateIndex], primitiveBounds);
 
                 }
-                bounds[rotateIndex].multiply(1 / GRID_SIZE);
+                bounds[rotateIndex] = divide(bounds[rotateIndex], GRID_SIZE);
                 // rotate pins
                 for (let [pinName, pinCoords] of Object.entries(rawPins)) {
-                    const pin = new Point(pinCoords);
-                    pin.multiply(1 / GRID_SIZE);
-                    pin.rotate(rotateIndex);
-                    pins[rotateIndex][pinName] = pin;
+                    pinCoords = divide(pinCoords, GRID_SIZE);
+                    pinCoords = rotate(pinCoords, rotateIndex);
+                    pins[rotateIndex][pinName] = pinCoords;
 
 
                 }
@@ -296,19 +328,22 @@ export const LoadElems = async (elems, errors) => {
             }
 
 
-            elems[rawElem.typeId] =
+            elems[rawLib.typeId] =
             {
-                typeId: rawElem.typeId,
-                abbr: rawElem.abbr,
-                descr: rawElem.descr,
-                name: rawElem.name,
+                typeId: rawLib.typeId,
+                abbr: rawLib.abbr,
+                descr: rawLib.descr,
+                name: rawLib.name,
                 turtle: turtle,
                 pins: pins,
                 bounds: bounds,
                 packages: {}
             };
+
+
             cnt++;
         });
+        // console.log(prettify(elems, 3));
         errors.push(`Loaded ${cnt} elements into library`);
 
     }
