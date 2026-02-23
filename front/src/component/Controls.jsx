@@ -4,15 +4,16 @@ import React from 'react';
 const buttonsCodes = [
 
 
-    { id: 1, caption: 'Load', ico: 'open' },
-    { id: 5, caption: 'Save', ico: 'save' },
+    { actionId: 1, caption: 'Load', ico: 'open' },
+    { actionId: 5, caption: 'Save', ico: 'save' },
 
-    { id: 20, caption: 'Clear all', ico: 'clear_all' },
-    { id: 21, caption: 'Clear wires', ico: 'clear_wires' },
+    { actionId: 20, caption: 'Clear all', ico: 'clear_all' },
+    { actionId: 21, caption: 'Clear wires', ico: 'clear_wires' },
 
-    { id: 3, caption: 'Reset view', ico: 'view' },
-    { id: 4, caption: 'Route', ico: 'route' },
-     { id: 400, caption: 'log', ico: '' }
+    { actionId: 3, caption: 'Reset view', ico: 'view' },
+    { actionId: 4, caption: 'Route', ico: 'route' },
+    { actionId: 400, caption: 'log wires', ico: '' },
+    { actionId: 410, caption: 'log lib', ico: '' }
 ]
 
 const ControlButton = ({ text, onClick, ico }) => {
@@ -32,10 +33,10 @@ const Controls = ({ onAction }) => {
 
             {buttonsCodes.map((e) => {
                 return <ControlButton
-                    key={e.id}
+                    key={e.actionId}
                     text={e.caption}
                     ico={e.ico}
-                    onClick={() => onAction(e.id)}
+                    onClick={() => onAction(e.actionId)}
 
                 />
 
@@ -51,5 +52,3 @@ const Controls = ({ onAction }) => {
 };
 export default Controls;
 
-// <div id="control_panel">
-// </div>

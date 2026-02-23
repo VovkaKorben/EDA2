@@ -11,6 +11,7 @@ import './css/flex.css'
 
 
 import { prettify } from './helpers/debug.js';
+import { Rect, Point } from './helpers/rect.js';
 
 const defaultSchemaElements = {
     elements: {},
@@ -43,7 +44,16 @@ function App() {
 
 
 
-    const [schemaElements, setSchemaElements] = useState(JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements);
+    const [schemaElements, setSchemaElements] = useState(() => {
+        const data = JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements;
+        for (const elemId in data.elements) {
+            data.elements[elemId].pos = new Point(...data.elements[elemId].pos);
+
+        }
+
+        return data;
+    }
+    );
     useEffect(() => { localStorage.setItem('schemaElements', JSON.stringify(schemaElements)); }, [schemaElements]);
     const ClearSchema = (keep_elements) => {
         const newElements = keep_elements ? { ...schemaElements.elements } : {};
@@ -75,8 +85,9 @@ function App() {
             case 3: refSchemaCanvas.current?.resetView(); break;
             case 400:
                 log_wires(schemaElements.wires);
-                // console.log(prettify(libElements, 0));
-                // console.log(prettify(schemaElements, 2));
+                break;
+            case 410:
+                console.log(prettify(libElements, 0));
                 break;
         }
     }
@@ -100,9 +111,9 @@ function App() {
     // add/modify element
     const onElemChanged = useCallback((elem, select) => {
         setSchemaElements(prev => {
-            const newElements = { ...prev.elements, [elem.id]: elem };
+            const newElements = { ...prev.elements, [elem.elementId]: elem };
             if (select) {
-                setSelected({ type: ObjectType.ELEMENT, elementId: elem.id });
+                setSelected({ type: ObjectType.ELEMENT, elementId: elem.elementId });
             }
             return { ...prev, elements: newElements };
         });

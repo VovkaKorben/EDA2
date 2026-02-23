@@ -6,7 +6,7 @@ import { drawElement, drawPins, drawName, drawWire, adjustPoint, drawGridDebug, 
 import { clamp, addPoint, pointsDistance, transformRect, ptInRect, roundPoint, isPointEqual } from '../helpers/geo.js';
 import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
 import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath, mergePaths } from '../helpers/astar.js';
-
+import { Rect, Point } from '../helpers/rect.js';
 const GRID_BOLD_EACH = 10;
 const SELECT_TOLERANCE = 0.5;
 const zoomLevels = [1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32];
@@ -115,24 +115,26 @@ const SchemaCanvas = forwardRef(({
     const screenToParrots = useCallback((screenX, screenY) => {
         const canvasRect = canvasRef.current.getBoundingClientRect();
         const { x, y, interval } = viewRef.current;
-        const parrotX = (screenX - canvasRect.left) / interval + x;
-        const parrotY = (screenY - canvasRect.top) / interval + y;
-        return [parrotX, parrotY];
+        const parrots = new Point(screenX, screenY);
+        parrots.move(- canvasRect.left, - canvasRect.top);
+        parrots.multiply(1 / interval);
+        parrots.move(x, y);
+        //const parrotX = (screenX - canvasRect.left) / interval + x;
+        //const parrotY = (screenY - canvasRect.top) / interval + y;
+        return parrots;
     }, []);
-    const parrotsToScreen = (parrots) => {
-        const [px, py] = parrots;
+    const parrotsToScreen = (parrot) => {
+
+        //const [px, py] = parrots;
         const { x, y, interval } = viewRef.current;
-        const screenX = (px - x) * interval;
-        const screenY = (py - y) * interval;
-        return [screenX, screenY];
+        const screen = new Point (parrot);
+        screen.move(-x, -y);
+        screen.multiply(interval);
+
+        //const screenX = (px - x) * interval;        const screenY = (py - y) * interval;
+        return screen;
     };
-    /*const GlobalToScreen = useCallback((pt) => {
-        const x = pt[0] * viewRef.current.zoom - viewRef.current.x;
-        const y = pt[1] * viewRef.current.zoom - viewRef.current.y;
-        return [x, y];
-     
-    }, [view]);
-    */
+
 
     // ----------------------------------------         SELECTION
     // -----------------------------------------------------------
@@ -150,15 +152,17 @@ const SchemaCanvas = forwardRef(({
     }, [libElements]);
 
     const findPinAt = useCallback((checkPoint) => {
+        const checkRect = new Rect(checkPoint);
+        checkRect.expand(SELECT_TOLERANCE);
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             if (libElement) {
                 for (const [pinName, pinValue] of Object.entries(libElement.pins[elem.rotate])) {
-                    const pinCoords = addPoint(pinValue, elem.pos);
-                    const parrotDist = pointsDistance(pinCoords, checkPoint);
-                    if (parrotDist <= SELECT_TOLERANCE) {
+                    const pinCoords = new Point(pinValue);
+                    pinCoords.move(elem.pos);
+                    if (pinCoords.inRect(checkRect)) {
                         return {
-                            elementId: elem.id,
+                            elementId: elem.elementId,
                             pinIdx: pinName,
                             // pinCoords: pinCoords
                         };
@@ -172,9 +176,11 @@ const SchemaCanvas = forwardRef(({
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             if (libElement) {
-                const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
-                if (ptInRect(elemRect, checkPoint)) {
-                    return { elementId: elem.id };
+                const elemRect = new Rect(libElement.bounds[elem.rotate]);
+                elemRect.move(elem.pos);
+                // const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
+                if (checkPoint.inRect(elemRect)) {
+                    return { elementId: elem.elementId };
                 }
             }
         }
@@ -182,7 +188,7 @@ const SchemaCanvas = forwardRef(({
     }, [libElements, schemaElements]);
 
     const findWireAt = useCallback((checkPoint) => {
-        const [mx, my] = checkPoint;
+        const [mx, my] = [checkPoint.x, checkPoint.y];
         for (const wire of Object.values(schemaElements.wires)) {
             for (let i = 0; i < wire.path.length - 1; i++) {
                 const [x1, y1] = wire.path[i];
@@ -404,9 +410,9 @@ const SchemaCanvas = forwardRef(({
     const handleMouseDown = useCallback((e) => {
         // return;
         if (e.button !== DRAG_BUTTON) return;
-        const pt = screenToParrots(e.clientX, e.clientY);
+        const parrotPoint = screenToParrots(e.clientX, e.clientY);
         //const obj = { type: ObjectType.NONE }
-        const obj = getObjectUnderCursor(pt);
+        const obj = getObjectUnderCursor(parrotPoint);
 
 
         switch (dragMode.current) {
@@ -644,7 +650,7 @@ const SchemaCanvas = forwardRef(({
                 if (!elem) return;
                 const lib = libElements[elem.typeId];
                 if (!lib) return;
-
+                //const drawPoint = new Rect(elem.pos);                drawPoint = 
                 const toDraw = {
                     ...lib,
                     pos: parrotsToScreen(elem.pos),
@@ -660,7 +666,7 @@ const SchemaCanvas = forwardRef(({
             Object.values(schemaElements.elements).forEach(elem => {
                 const libElement = libElements[elem.typeId];
                 if (libElement) {
-                    const drawColor = (selected?.type === ObjectType.ELEMENT && selected.elementId === elem.id) ?
+                    const drawColor = (selected?.type === ObjectType.ELEMENT && selected.elementId === elem.elementId) ?
                         DrawColor.SELECTED : DrawColor.NORMAL
 
                     const toDraw = {
@@ -674,7 +680,7 @@ const SchemaCanvas = forwardRef(({
                     };
                     drawElement(ctx, toDraw);
                     drawPins(toDraw, ctx);
-                    drawName(toDraw, ctx);
+                     drawName(toDraw, ctx);
                 }
             });
         }
@@ -762,9 +768,9 @@ const SchemaCanvas = forwardRef(({
 
         return () => cancelAnimationFrame(frameId);
     }, [drawAll]);
-// ResizeObserver
+    // ResizeObserver
 
-   
+
     useEffect(() => {// update canvas size
 
         const canvas = canvasRef.current;
@@ -773,7 +779,7 @@ const SchemaCanvas = forwardRef(({
             const { clientWidth, clientHeight } = canvas;
             canvas.width = clientWidth * dpr;
             canvas.height = clientHeight * dpr;
-          if (drawRef.current) drawRef.current();
+            if (drawRef.current) drawRef.current();
         });
         resizeObserver.observe(canvas);
 
@@ -885,8 +891,8 @@ const SchemaCanvas = forwardRef(({
         const data = JSON.parse(e.dataTransfer.getData('compData'));
 
         // calculate insertion position
-        let insertPos = screenToParrots(e.clientX, e.clientY);
-        insertPos = roundPoint(insertPos);
+        const insertPos = screenToParrots(e.clientX, e.clientY);
+        insertPos.round();
         // get first available element index
         let newTypeIndex = 1;
         const searchType = libElements[data.typeId].abbr.toUpperCase();
@@ -899,7 +905,7 @@ const SchemaCanvas = forwardRef(({
             newTypeIndex++
         }
         const newElement = {
-            id: getNewElementId(),
+            elementId: getNewElementId(),
             typeId: data.typeId,
             pos: insertPos,
             rotate: 0,
@@ -944,8 +950,8 @@ const SchemaCanvas = forwardRef(({
             case DragModeType.ELEMENT: {
                 const { elemStartX, elemStartY, startX, startY } = lastPos.current;
                 const { interval } = viewRef.current;
-                const id = selectedRef.current.elementId;
-                const newElem = { ...schemaRef.current.elements[id] };
+                const elementId = selectedRef.current.elementId;
+                const newElem = { ...schemaRef.current.elements[elementId] };
 
                 const dx = (e.clientX - startX) / interval;
                 const dy = (e.clientY - startY) / interval;

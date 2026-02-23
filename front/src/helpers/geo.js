@@ -1,9 +1,11 @@
 import { GRID_SIZE } from './draw.js';
+import { Rect, Point } from './rect.js';
 import { API_URL } from './utils.js';
-export const extractCoords = (coordsString) => {
+export const stringToPoint = (coordsString) => {
     const exploded = coordsString.split(',');
-    const values = exploded.map(v => +v);
-    return values;
+
+    const point = new Point(+exploded[0], +exploded[1]);
+    return point;
 
 
 }
@@ -27,13 +29,13 @@ export const turtleToParams = (turtleString) => {
     }
     return rawPrimitives;
 };
-export const pinsToParams = (pinString) => {
+export const pinsToPoints = (pinString) => {
     const rawPins = {};
     let pinsGroup = pinString || '';
     pinsGroup = pinsGroup.replace(/\s/g, '');
     pinsGroup = [...pinsGroup.matchAll(/([^:;]+):(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?);?/g)]
     for (const pin of pinsGroup) {
-        rawPins[pin[1]] = [+pin[2], +pin[3]];//rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
+        rawPins[pin[1]] = new Point(+pin[2], +pin[3]);//rawPins[pin[1]] = [pin[2] / GRID_SIZE, pin[3] / GRID_SIZE];
     }
     return rawPins;
 
@@ -41,45 +43,49 @@ export const pinsToParams = (pinString) => {
 export const getPrimitiveBounds = (prim) => {
 
 
-    let primBounds = [Infinity, Infinity, -Infinity, -Infinity];
+
     switch (prim.code) {
 
 
         case 'R': { // rectangle
             const [x, y, w, h] = prim.params;
             const x2 = x + w, y2 = y + h;
-            primBounds = [
+            return new Rect(
                 Math.min(x, x2), Math.min(y, y2),
                 Math.max(x, x2), Math.max(y, y2)
-            ];
+            );
         }
-            break;
+
         case 'L': // line
             {
                 const [x, y, x2, y2] = prim.params;
-                primBounds = [
+                return new Rect(
                     Math.min(x, x2), Math.min(y, y2),
                     Math.max(x, x2), Math.max(y, y2)
-                ];
-                break;
+                );
             }
         case 'C': // circle
         case 'A': // arc - for simplification
             {
                 const [x, y, r] = prim.params;
-                primBounds = [x - r, y - r, x + r, y + r];
-                break;
+                return new Rect(x - r, y - r, x + r, y + r);
             }
         case 'P': // polyline/polygon
             {
+                const primBounds = new Rect(Infinity, Infinity, -Infinity, -Infinity);
+
+
                 for (let p = 0; p < prim.params.length - 1; p += 2) {
-                    let [x, y] = prim.params.slice(p, p + 2);
-                    primBounds = expandBounds(primBounds, [x, y, x, y]);
+                    const point = new Point(...prim.params.slice(p, p + 2));
+                    primBounds.addPoint(point);
                 }
-                break;
+                return primBounds;
+
+
             }
+        default: throw new Error(`Invalid primitive:`);
     }
-    return primBounds;
+
 
 }
 export const expandBounds = (current, add) => {
@@ -148,19 +154,19 @@ export const snapRect = (rect) => {
     const [x1, y1, x2, y2] = rect;
     return [Math.floor(x1), Math.floor(y1), Math.ceil(x2), Math.ceil(y2)];
 }
-export const rotatePoint = (pt, rotateIndex) => {
-    switch (rotateIndex) {
-        case 0: return [pt[0], pt[1]];
-        case 1: return [-pt[1], pt[0]];
-        case 2: return [-pt[0], -pt[1]];
-        case 3: return [pt[1], -pt[0]];
-        default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
-    }
-}
+
 
 export const rotatePrimitive = (prim, rotateIndex) => {
 
-
+    const rotatePoint = (pt, rotateIndex) => {
+        switch (rotateIndex) {
+            case 0: return [pt[0], pt[1]];
+            case 1: return [-pt[1], pt[0]];
+            case 2: return [-pt[0], -pt[1]];
+            case 3: return [pt[1], -pt[0]];
+            default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
+        }
+    }
 
     try {
         const p = prim.params;
@@ -252,7 +258,7 @@ export const LoadElems = async (elems, errors) => {
             const rawPrimitives = turtleToParams(rawElem.turtle);
 
             // explode pins to coords
-            const rawPins = pinsToParams(rawElem.pins);
+            const rawPins = pinsToPoints(rawElem.pins);
 
             // Object.keys(rawPins).forEach(k => {                rawPins[k] = multiplyPoint(rawPins[k], 1 / GRID_SIZE)            });
 
@@ -261,11 +267,11 @@ export const LoadElems = async (elems, errors) => {
             // prepare for element rotating
             const turtle = Array.from({ length: 4 }, () => []);
             const pins = Array.from({ length: 4 }, () => ({}));
-            const bounds = Array.from({ length: 4 }, () => [Infinity, Infinity, -Infinity, -Infinity]);
+            const bounds = Array.from({ length: 4 }, () => new Rect(Infinity, Infinity, -Infinity, -Infinity));
 
             for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
 
-                // rotate all primitives
+                // rotate all primiti ves
                 // bounds[rotateIndex] =;
                 for (const prim of rawPrimitives) {
                     const rotatedPrimitive = rotatePrimitive(prim, rotateIndex);
@@ -273,14 +279,17 @@ export const LoadElems = async (elems, errors) => {
 
                     // get bounds for current and accumulate
                     const primitiveBounds = getPrimitiveBounds(rotatedPrimitive);
-                    bounds[rotateIndex] = expandBounds(bounds[rotateIndex], primitiveBounds);
+                    bounds[rotateIndex].union(primitiveBounds);
 
                 }
-                bounds[rotateIndex] = multiplyRect(bounds[rotateIndex], 1 / GRID_SIZE);
+                bounds[rotateIndex].multiply(1 / GRID_SIZE);
                 // rotate pins
                 for (let [pinName, pinCoords] of Object.entries(rawPins)) {
-                    const zoomedPin = multiplyPoint(pinCoords, 1 / GRID_SIZE);
-                    pins[rotateIndex][pinName] = rotatePoint(zoomedPin, rotateIndex);
+                    const pin = new Point(pinCoords);
+                    pin.multiply(1 / GRID_SIZE);
+                    pin.rotate(rotateIndex);
+                    pins[rotateIndex][pinName] = pin;
+
 
                 }
 

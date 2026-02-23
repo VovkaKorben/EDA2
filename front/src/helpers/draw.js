@@ -1,7 +1,7 @@
 
 import { addPoint, multiplyPoint } from './geo.js';
 
-
+import { Point, Rect } from './rect.js';
 export const dpr = (globalThis.window !== undefined) ? (window.devicePixelRatio || 1) : null;
 // console.log(dpr);
 export const GRID_SIZE = 2.5;
@@ -67,7 +67,12 @@ export const drawElement = (ctx, elem) => {
     try {
         // ctx.translate(Math.round(elem.pos.x), Math.round(elem.pos.y));
         // Округляем до целого физического пикселя, затем возвращаем в логику
-        ctx.translate(Math.round(elem.pos[0] * dpr) / dpr, Math.round(elem.pos[1] * dpr) / dpr);
+        const pos = new Point(elem.pos);
+        pos.multiply(dpr);
+        pos.round();
+        pos.multiply(1 / dpr);
+        ctx.translate(pos.x, pos.y);
+        //ctx.translate(Math.round(elem.pos[0] * dpr) / dpr, Math.round(elem.pos[1] * dpr) / dpr);
         ctx.lineWidth = elem.width / dpr;
         ctx.strokeStyle = elem.color;
         ctx.fillStyle = elem.color;

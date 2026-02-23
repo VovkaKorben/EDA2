@@ -3,6 +3,7 @@ import { useRef, useEffect } from 'react';
 import { dpr, drawElement, GRID_SIZE } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
 import { DrawColor } from '../helpers/utils.js';
+import { Rect, Point } from '../helpers/rect.js';
 import '../css/Library.css'
 
 const libWidth = 50;
@@ -28,16 +29,14 @@ const LibraryItem = ({ libElem }) => {
         const viewHeight = libHeight * (1 - elemMargin / 100 * 2);
         // get bounds for unrotated
         const elemBounds = libElem.bounds[0];
-        const elemWidth = elemBounds[2] - elemBounds[0];
-        const elemHeight = elemBounds[3] - elemBounds[1];
-        const kx = viewWidth / elemWidth;
-        const ky = viewHeight / elemHeight;
+        const kx = viewWidth / elemBounds.w;
+        const ky = viewHeight / elemBounds.h;
         const k = kx > ky ? ky : kx;
         const z = k / GRID_SIZE;
 
         const toDraw = {
             ...libElem,
-            pos: [libWidth / 2, libHeight / 2],
+            pos: new Point(libWidth / 2, libHeight / 2),
 
             zoom: z,
             rotate: 0,

@@ -13,7 +13,7 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange, 
         setPackageSelectorVisible(false);
         packageChange(
             {
-                elementId: elem.id,
+                elementId: elem.elementId,
                 packageId: clear ? null : packageRef.current.value
             });
     }
@@ -22,9 +22,9 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange, 
 
 
     const classCollect = ['elements-entry', 'frsc'];
-    if (selected.type === ObjectType.ELEMENT && selected.elementId === elem.id)
+    if (selected.type === ObjectType.ELEMENT && selected.elementId === elem.elementId)
         classCollect.push('elements-entry-selected');
-    if (hovered.type === ObjectType.ELEMENT && hovered.elementId === elem.id)
+    if (hovered.type === ObjectType.ELEMENT && hovered.elementId === elem.elementId)
         classCollect.push('elements-entry-hovered');
     const mergedClass = classCollect.join(' ');
 
@@ -84,9 +84,9 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange, 
 
     return <div
         className={mergedClass}
-        onMouseEnter={() => hoveredChange({ type: ObjectType.ELEMENT, elementId: elem.id })}
+        onMouseEnter={() => hoveredChange({ type: ObjectType.ELEMENT, elementId: elem.elementId })}
         onMouseLeave={() => hoveredChange({ type: ObjectType.NONE })}
-        onClick={() => selectedChange(({ type: ObjectType.ELEMENT, elementId: elem.id }))}
+        onClick={() => selectedChange(({ type: ObjectType.ELEMENT, elementId: elem.elementId }))}
     >
         <div> {elem.abbr}{elem.typeIndex}</div>
         <div className='package-selector frcc'>{packageDisplay}</div>
@@ -118,7 +118,7 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered, selected
         <div className="elements-schema">
             {elemList.map((elem) => {
                 return <ElementEntry
-                    key={elem.id}
+                    key={elem.elementId}
                     elem={elem}
                     selected={selected}
                     hovered={hovered}
