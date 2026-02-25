@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
 import { ObjectType, DragModeType, DrawColor } from '../helpers/utils.js';
-import { drawElement, drawPins, drawName, drawWire, adjustPoint, drawGridDebug, adjustCtx, GRID_SIZE, dpr } from '../helpers/draw.js';
+import { drawElement, drawPins, drawName, drawWire, drawGridDebug, GRID_SIZE, dpr } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
 import {
 
@@ -9,7 +9,9 @@ import {
     clamp,
     add,
     addPoint, ptInRect, roundPoint, isPointEqual,
-    expandRect
+    expandRect,
+    union,
+    getRectHeight, getRectWidth,adjustCtx,adjustPoint
 } from '../helpers/geo.js';
 import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
 import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath, mergePaths } from '../helpers/astar.js';
@@ -57,7 +59,74 @@ const SchemaCanvas = forwardRef(({
     useEffect(() => { localStorage.setItem('view', JSON.stringify(view)); }, [view]);
 
     useEffect(() => { viewRef.current = view; }, [view]);
-    useImperativeHandle(ref, () => ({ resetView: () => { setView(DEFAULT_VIEW); } }));
+
+    const zoomFit = () => {
+        let bounds = [Infinity, Infinity, -Infinity, -Infinity]
+
+        // elements
+        Object.values(schemaRef.current.elements).forEach(elem => {
+            const lib = libElements[elem.typeId];
+            if (lib) {
+                // element itself
+                let elemBounds = [...lib.bounds[elem.rotate]];
+
+                // pins
+                Object.values(lib.pins[elem.rotate]).forEach(pin => {
+                    elemBounds = union(elemBounds, pin)
+                });
+
+                // union complete element
+                elemBounds = add(elemBounds, elem.pos);
+                bounds = union(bounds, elemBounds);
+            }
+        });
+
+        // wires 
+        Object.values(schemaRef.current.wires).forEach(wire => {
+            wire.path.forEach(pt => { bounds = union(bounds, pt); })
+        });
+
+        const { width, height } = canvasRef.current.getBoundingClientRect();
+
+
+        const parrotW = getRectWidth(bounds);
+        const parrotH = getRectHeight(bounds);
+
+        // minimum allowed parrots
+        const minW = width / parrotW;
+        const minH = height / parrotH;
+        const usedParrots = Math.min(minW, minH)
+        // raw zoom value
+        const zoomRaw = usedParrots / GRID_SIZE;
+        // get 
+
+        const newZoomIndex = clamp(zoomLevels.findIndex(z => z > zoomRaw) - 1, 0, zoomLevels.length - 1);
+        const newZoom = zoomLevels[newZoomIndex];
+        const newInterval = newZoom * GRID_SIZE;
+        const posX = bounds[0] - (width / newInterval - parrotW) / 2;
+        const posY = bounds[1] - (height / newInterval - parrotH) / 2;
+
+        const newView = {
+            zoomIndex: newZoomIndex,
+            zoom: newZoom,
+            interval: newInterval,
+            pos: [posX, posY]
+
+        };
+        setView(newView);
+
+    }
+
+
+
+
+    useImperativeHandle(ref, () => ({
+        resetView: () => {
+            zoomFit();
+            // setView(DEFAULT_VIEW);
+
+        }
+    }));
 
 
 
@@ -531,7 +600,7 @@ const SchemaCanvas = forwardRef(({
                 const end = wire.path[wire.path.length - 1];
                 const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
                 const [tx, ty] = parrotsToScreen(mid);
-
+    
                 ctx.save();
                 ctx.fillStyle = 'red';
                 ctx.font = '12px Arial';
@@ -564,19 +633,19 @@ const SchemaCanvas = forwardRef(({
 
             // t-conn circles
             ctx.lineWidth = 1; ctx.fillStyle = DrawColor.NORMAL;
-          
+
             // tconn.forEach(pt => ctx.arc(...parrotsToScreen(pt), 5, 0, 2 * Math.PI));
 
             tconn.forEach(parrot => {
                 let drawPoint = parrotsToScreen(parrot)
-                  ctx.beginPath();
+                ctx.beginPath();
                 // drawPoint = add(drawPoint, [5, 0])
                 // drawPoint.move(drawPoint.x + 5, drawPoint.y);
                 ctx.arc(...drawPoint, 5, 0, 2 * Math.PI); ctx.fill();
             });
 
 
-           
+
 
         };
         const drawElements = () => {
@@ -747,6 +816,7 @@ const SchemaCanvas = forwardRef(({
         const handleKeyDown = (event) => {
             switch (event.code) {
                 case 'KeyQ': {
+                    zoomFit();
                     /*   const s = { type: 'PIN', elementId: 1770957831203, pinIdx: 'PIN1', pinCoords: Array(2) };
                        const g = { type: 'PIN', elementId: 1770957832868, pinIdx: 'PIN2', pinCoords: Array(2) };
                        connect_wire(s, g);

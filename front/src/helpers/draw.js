@@ -1,13 +1,12 @@
 
-import { addPoint, multiplyPoint } from './geo.js';
+import { addPoint, multiplyPoint, adjustPoint, adjustCtx } from './geo.js';
 
 // import { Point, Rect } from './rect.js';
 export const dpr = (globalThis.window !== undefined) ? (window.devicePixelRatio || 1) : null;
 // console.log(dpr);
 export const GRID_SIZE = 2.5;
 
-export const adjustCtx = (v) => Math.round(v) + 0.5;
-export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
+
 
 export const drawWire = (ctx, path, width, color, parrotsToScreen) => {
     ctx.fillStyle = color;

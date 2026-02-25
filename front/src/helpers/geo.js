@@ -2,14 +2,19 @@ import { prettify } from './debug.js';
 import { GRID_SIZE } from './draw.js';
 import { Rect, Point } from './rect.js';
 import { API_URL, ErrorCodes } from './utils.js';
+
+export const adjustCtx = (v) => Math.round(v) + 0.5;
+export const adjustPoint = (pt) => [Math.round(pt[0]) + 0.5, Math.round(pt[1]) + 0.5];
+
 function isPlainObject(value) {
     return value !== null && typeof value === 'object' && value.constructor === Object;
 }
 
+
 export const stringToCoords = (coordsString) => {
     const exploded = coordsString.split(',');
     const n = exploded.map(v => +v);
-    // const point = new Point(+exploded[0], +exploded[1]);
+    
     return n;
 
 
@@ -125,8 +130,7 @@ export const getPrimitiveBounds = (prim) => {
             }
         case 'P': // polyline/polygon
             {
-                let primBounds = [Infinity, Infinity, -Infinity, -Infinity];
-
+                let primBounds =[Infinity, Infinity, -Infinity, -Infinity]
 
                 for (let p = 0; p < prim.params.length - 1; p += 2) {
                     const point = [...prim.params.slice(p, p + 2)];

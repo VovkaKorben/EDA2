@@ -88,6 +88,8 @@ export class Rect {
 
     }
 
+    toArray() { return [this.l, this.t, this.r, this.b] }
+
 }
 
 export class Point {

@@ -230,10 +230,10 @@ const getUsedPackageIds = ({ schemaElements: { elements }, libElements }) => {
             if (errorsCount < 3) {
                 const lib = libElements[elem.typeId];
                 const elemName = `${lib.abbr}${elem.typeIndex}`;
-                errors.push(`No packageId assigned for ${elemName}`);
+                errors.push({ code: ErrorCodes.ERROR, message: `No package assigned for ${elemName}` });
                 errorsCount++;
             } else {
-                errors.push(`Showed names for first 3 elems`);
+                errors.push({ code: ErrorCodes.INFO, message: 'Showed names for first 3 elems' });
                 break;
             }
         }
@@ -322,7 +322,8 @@ const checkPins = ({ schemaElements: { elements }, libElements }, packagesData) 
 
         const missingPins = schemaPinsNames.filter(pinName => !packagePinsNames.includes(pinName));
         if (missingPins.length) {
-            return [`Missing pins (${missingPins.join(',')}) for ${lib.abbr} in package ${pkg.name} (ID: ${pkg.packageId})`];
+
+            return [{ code: ErrorCodes.ERROR, message: `Missing pins (${missingPins.join(',')}) for ${lib.abbr} in package ${pkg.name} (ID: ${pkg.packageId})` }];
         }
 
     }
@@ -330,14 +331,14 @@ const checkPins = ({ schemaElements: { elements }, libElements }, packagesData) 
 }
 
 export const doRoute = async (data) => {
-   
+
     try {
 
         // collect used packages IDs
         let { errors, packageIds } = getUsedPackageIds(data);
         if (errors.length > 0) {
-            console.error(errors);
-            return;
+            //console.error(errors);
+            return { errors: errors };
         }
         // read packages from DB
         const rawPackages = await fetchPackages(packageIds);
@@ -348,8 +349,7 @@ export const doRoute = async (data) => {
         // check all pins are exist (lib <=> phys)
         errors = checkPins(data, packagesData);
         if (errors.length > 0) {
-            console.error(errors);
-            return;
+            return { errors: errors };
         }
 
         // create Rect-array from used element-packages
@@ -365,16 +365,13 @@ export const doRoute = async (data) => {
         }
 
         //console.log(prettify(packagesRects, 1));
-        Object.values(packagesRects).forEach(v => {
-            console.log(`ID: ${v.elementId}, Size: ${v.w}x${v.h}`);
-
-        });
+        // Object.values(packagesRects).forEach(v => { console.log(`ID: ${v.elementId}, Size: ${v.w}x${v.h}`); });
         // pack rects on the PCB
         const packResult = packRects(packagesRects);
-        console.log(prettify(packResult, 2));
-
-        // console.log(rawPackages);
-        // console.log(packages);
+        packResult.binW = Math.ceil(packResult.binW);
+        packResult.binH = Math.ceil(packResult.binH);
+        // console.log(prettify(packResult, 2));
+        return { data: packResult }
     } catch (err) {
         console.error(err.message);
     }

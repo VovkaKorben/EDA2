@@ -24,18 +24,9 @@ function App() {
     const [errorList, setErrorList] = useState([]);
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
-    const [showRoute, setShowRoute] = useState(false);
-
-
+    const [showRoute, setShowRoute] = useState(true);
     const refSchemaCanvas = useRef(null);
-
-    const addErrors = useCallback((newErrors) => {
-        setErrorList(prev => [...prev, ...newErrors]);
-    }, []);
-
-    //const addErrors = (errors) => { setErrorList(prev => [...prev, ...errors]); }
-
-    //const [libElements, setLibElements] = useState(        JSON.parse(localStorage.getItem('libElements')) || []);
+    const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
     const [libElements, setLibElements] = useState([]);
     useEffect(() => {
         const loadElems = async () => {
@@ -43,7 +34,7 @@ function App() {
             const elems = {};
             const errors = [];
             await LoadElems(elems, errors);
-            addErrors(errors)
+            handleErrors(errors)
 
             // console.log('loadedElems: ' + prettify(loadedElems, 1));
             setLibElements(elems);
@@ -51,17 +42,14 @@ function App() {
         loadElems();
 
         //console.log('libElements: ' + prettify(libElements, 1));        localStorage.setItem('libElements', JSON.stringify(libElements));
-    }, []);
-
-
+    }, [handleErrors]);
     const [schemaElements, setSchemaElements] = useState(() => {
         const data = JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements;
-        //for (const elemId in data.elements) {            data.elements[elemId].pos = new Point(...data.elements[elemId].pos);        }
-
         return data;
-    }
-    );
+    });
     useEffect(() => { localStorage.setItem('schemaElements', JSON.stringify(schemaElements)); }, [schemaElements]);
+
+
     const ClearSchema = (keep_elements) => {
         const newElements = keep_elements ? { ...schemaElements.elements } : {};
         setSchemaElements({
@@ -190,6 +178,12 @@ function App() {
 
     };
 
+
+    useEffect(() => {
+        console.log(`libElements: ${libElements?.length}`)
+    }, [libElements]);
+
+
     return (
         // <div className='app-container'>
         <div className={`app-container ${showRoute ? 'route-mode' : ''}`}>
@@ -218,7 +212,9 @@ function App() {
 
                 {showRoute ?
                     <RouteShow
-                        onError={addErrors}
+                        onError={handleErrors}
+                        schemaElements={schemaElements}
+                        libElements={libElements}
                     />
 
 
