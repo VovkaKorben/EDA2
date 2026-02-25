@@ -1,11 +1,13 @@
 import {
-    expandPoint, getPrimitiveBounds, expandBounds, stringToPoint, turtleToParams, pinsToPoints, expandBoundsByPoint,
+    getPrimitiveBounds, stringToCoords, turtleToParams, pinsToPoints,
     getRectWidth, getRectHeight,
-    floatEqual, leq, geq
+    floatEqual, leq, geq,
+    union, expandRect
 } from './geo.js';
 import { Rect } from './rect.js';
-import { API_URL } from './utils.js';
+import { API_URL, ErrorCodes } from './utils.js';
 import { prettify } from './debug.js';
+
 
 const packRects = (inputRects) => {
     let binW = 0;
@@ -270,24 +272,24 @@ const convertPackage = (pkg) => {
     // extract coords from strings
     const turtle = turtleToParams(pkg.turtle);
     const pins = pinsToPoints(pkg.pins);
-    const textPos = stringToPoint(pkg.textpos);
-    delete pkg.textpos;
+    const textPos = stringToCoords(pkg.textPos);
     // console.log(pkg);
 
     // calculate turtle bounds
-    let bounds = new Rect(Infinity, Infinity, -Infinity, -Infinity);
+    let bounds = [Infinity, Infinity, -Infinity, -Infinity];
     for (const prim of turtle) {
         const primitiveBounds = getPrimitiveBounds(prim);
-        bounds.union(primitiveBounds);
+        bounds = union(bounds, primitiveBounds);
     }
 
     // expand text pos point
-    const textRect = new Rect(textPos);
-    textRect.expand(0, 1.5); // text height 1.5*2 = 3mm
-    bounds.union(textRect);
+    let textRect = [...textPos, ...textPos];
+    textRect = expandRect(textRect, 0, 1.5); // text height 1.5*2 = 3mm
+    bounds = union(bounds, textRect);
+
 
     // expand bound with pins
-    Object.values(pins).forEach(pin => bounds.union(pin));
+    Object.values(pins).forEach(pin => bounds = union(bounds, pin));
 
     const result = {
         ...pkg,
@@ -328,6 +330,7 @@ const checkPins = ({ schemaElements: { elements }, libElements }, packagesData) 
 }
 
 export const doRoute = async (data) => {
+   
     try {
 
         // collect used packages IDs
@@ -342,7 +345,7 @@ export const doRoute = async (data) => {
         // convert coordinates
         const packagesData = convertPackages(rawPackages);
 
-        // check all pins are exist
+        // check all pins are exist (lib <=> phys)
         errors = checkPins(data, packagesData);
         if (errors.length > 0) {
             console.error(errors);
@@ -355,14 +358,20 @@ export const doRoute = async (data) => {
         for (const elem of Object.values(data.schemaElements.elements)) {
             const packageId = elem.packageId;
 
-            const pkgRect = new Rect(packagesData[packageId].bounds);
+            const pkgRect = new Rect(...packagesData[packageId].bounds);
             pkgRect.elementId = elem.elementId;
 
             packagesRects.push(pkgRect);
         }
+
+        //console.log(prettify(packagesRects, 1));
+        Object.values(packagesRects).forEach(v => {
+            console.log(`ID: ${v.elementId}, Size: ${v.w}x${v.h}`);
+
+        });
         // pack rects on the PCB
         const packResult = packRects(packagesRects);
-        console.log(prettify(packResult,2));
+        console.log(prettify(packResult, 2));
 
         // console.log(rawPackages);
         // console.log(packages);
@@ -376,7 +385,7 @@ export const doRoute = async (data) => {
 
 
 
-
+/*
 
 const data = {
     "schemaElements": { "elements": { "0": { "elementId": 0, "typeId": 17, "pos": [50, 38], "rotate": 3, "typeIndex": 1, "packageId": 24 }, "1": { "elementId": 1, "typeId": 13, "pos": [60, 38], "rotate": 3, "typeIndex": 1, "packageId": 7 }, "2": { "elementId": 2, "typeId": 2, "pos": [58, 24], "rotate": 1, "typeIndex": 2, "packageId": 21 }, "3": { "elementId": 3, "typeId": 19, "pos": [58, 13], "rotate": 0, "typeIndex": 1, "packageId": 23 }, "4": { "elementId": 4, "typeId": 2, "pos": [67, 30], "rotate": 0, "typeIndex": 3, "packageId": 21 }, "5": { "elementId": 5, "typeId": 5, "pos": [82, 30], "rotate": 0, "typeIndex": 1, "packageId": 22 }, "7": { "elementId": 7, "typeId": 2, "pos": [100, 16], "rotate": 1, "typeIndex": 4, "packageId": 21 }, "8": { "elementId": 8, "typeId": 15, "pos": [110, 36], "rotate": 1, "typeIndex": 1, "packageId": 14 }, "9": { "elementId": 9, "typeId": 2, "pos": [83, 38], "rotate": 1, "typeIndex": 5, "packageId": 21 }, "10": { "elementId": 10, "typeId": 1, "pos": [75, 24], "rotate": 1, "typeIndex": 1, "packageId": 12 }, "11": { "elementId": 11, "typeId": 18, "pos": [75, 14], "rotate": 3, "typeIndex": 2, "packageId": 8 }, "12": { "elementId": 12, "typeId": 14, "pos": [110, 14], "rotate": 1, "typeIndex": 1, "packageId": 19 }, "13": { "elementId": 13, "typeId": 14, "pos": [67, 24], "rotate": 0, "typeIndex": 2, "packageId": 19 } }, "wires": { "0": { "wireId": 0, "source": { "type": "PIN", "elementId": 8, "pinIdx": "+" }, "target": { "type": "PIN", "elementId": 12, "pinIdx": "PIN2" }, "path": [[110, 34], [110, 17]] }, "1": { "wireId": 1, "source": { "type": "PIN", "elementId": 0, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [60, 43] }, "path": [[50, 42], [50, 43], [60, 43]] }, "2": { "wireId": 2, "source": { "type": "PIN", "elementId": 8, "pinIdx": "-" }, "target": { "type": "TCONN", "pos": [100, 43] }, "path": [[110, 38], [110, 43], [100, 43]] }, "3": { "wireId": 3, "source": { "type": "TCONN", "pos": [83, 43] }, "target": { "type": "TCONN", "pos": [100, 43] }, "path": [[83, 43], [100, 43]] }, "4": { "wireId": 4, "source": { "type": "PIN", "elementId": 4, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [70, 30] }, "path": [[69, 30], [70, 30]] }, "5": { "wireId": 5, "source": { "type": "PIN", "elementId": 9, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [83, 43] }, "path": [[83, 40], [83, 43]] }, "6": { "wireId": 6, "source": { "type": "PIN", "elementId": 9, "pinIdx": "PIN2" }, "target": { "type": "PIN", "elementId": 5, "pinIdx": "E" }, "path": [[83, 36], [83, 33]] }, "7": { "wireId": 7, "source": { "type": "PIN", "elementId": 11, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [80, 9] }, "path": [[75, 10], [75, 9], [80, 9]] }, "8": { "wireId": 8, "source": { "type": "PIN", "elementId": 12, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [100, 9] }, "path": [[110, 11], [110, 9], [100, 9]] }, "9": { "wireId": 9, "source": { "type": "PIN", "elementId": 7, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [100, 9] }, "path": [[100, 14], [100, 9]] }, "10": { "wireId": 10, "source": { "type": "PIN", "elementId": 5, "pinIdx": "B" }, "target": { "type": "TCONN", "pos": [75, 30] }, "path": [[79, 30], [75, 30]] }, "11": { "wireId": 11, "source": { "type": "PIN", "elementId": 7, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [100, 43] }, "path": [[100, 18], [100, 43]] }, "12": { "wireId": 12, "source": { "type": "PIN", "elementId": 10, "pinIdx": "1" }, "target": { "type": "TCONN", "pos": [75, 30] }, "path": [[75, 28], [75, 30]] }, "13": { "wireId": 13, "source": { "type": "PIN", "elementId": 10, "pinIdx": "0" }, "target": { "type": "PIN", "elementId": 11, "pinIdx": "PIN3" }, "path": [[75, 20], [75, 18]] }, "14": { "wireId": 14, "source": { "type": "TCONN", "pos": [100, 9] }, "target": { "type": "TCONN", "pos": [83, 9] }, "path": [[100, 9], [83, 9]] }, "15": { "wireId": 15, "source": { "type": "PIN", "elementId": 5, "pinIdx": "C" }, "target": { "type": "TCONN", "pos": [83, 9] }, "path": [[83, 27], [83, 9]] }, "16": { "wireId": 16, "source": { "type": "TCONN", "pos": [83, 9] }, "target": { "type": "TCONN", "pos": [80, 9] }, "path": [[83, 9], [80, 9]] }, "17": { "wireId": 17, "source": { "type": "PIN", "elementId": 11, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [80, 9] }, "path": [[78, 14], [80, 14], [80, 9]] }, "18": { "wireId": 18, "source": { "type": "PIN", "elementId": 4, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [64, 30] }, "path": [[65, 30], [64, 30]] }, "19": { "wireId": 19, "source": { "type": "PIN", "elementId": 0, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [58, 30] }, "path": [[50, 34], [50, 30], [58, 30]] }, "20": { "wireId": 20, "source": { "type": "PIN", "elementId": 2, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [58, 30] }, "path": [[58, 26], [58, 30]] }, "21": { "wireId": 21, "source": { "type": "PIN", "elementId": 2, "pinIdx": "PIN2" }, "target": { "type": "PIN", "elementId": 3, "pinIdx": "PIN1" }, "path": [[58, 22], [58, 15]] }, "22": { "wireId": 22, "source": { "type": "TCONN", "pos": [75, 30] }, "target": { "type": "TCONN", "pos": [70, 30] }, "path": [[75, 30], [70, 30]] }, "23": { "wireId": 23, "source": { "type": "PIN", "elementId": 13, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [70, 30] }, "path": [[70, 24], [70, 30]] }, "24": { "wireId": 24, "source": { "type": "TCONN", "pos": [58, 30] }, "target": { "type": "TCONN", "pos": [60, 30] }, "path": [[58, 30], [60, 30]] }, "25": { "wireId": 25, "source": { "type": "PIN", "elementId": 13, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [64, 30] }, "path": [[64, 24], [64, 30]] }, "26": { "wireId": 26, "source": { "type": "TCONN", "pos": [64, 30] }, "target": { "type": "TCONN", "pos": [60, 30] }, "path": [[64, 30], [60, 30]] }, "27": { "wireId": 27, "source": { "type": "PIN", "elementId": 1, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [60, 30] }, "path": [[60, 36], [60, 30]] }, "28": { "wireId": 28, "source": { "type": "TCONN", "pos": [83, 43] }, "target": { "type": "TCONN", "pos": [60, 43] }, "path": [[83, 43], [60, 43]] }, "29": { "wireId": 29, "source": { "type": "PIN", "elementId": 1, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [60, 43] }, "path": [[60, 40], [60, 43]] } } }, "saved": { "elements": { "0": { "elementId": 0, "typeId": 17, "pos": [50, 38], "rotate": 3, "typeIndex": 1, "packageId": 24 }, "1": { "elementId": 1, "typeId": 13, "pos": [60, 38], "rotate": 3, "typeIndex": 1, "packageId": 7 }, "2": { "elementId": 2, "typeId": 2, "pos": [58, 24], "rotate": 1, "typeIndex": 2, "packageId": 21 }, "3": { "elementId": 3, "typeId": 19, "pos": [58, 13], "rotate": 0, "typeIndex": 1, "packageId": 23 }, "4": { "elementId": 4, "typeId": 2, "pos": [67, 30], "rotate": 0, "typeIndex": 3, "packageId": 21 }, "5": { "elementId": 5, "typeId": 5, "pos": [82, 30], "rotate": 0, "typeIndex": 1, "packageId": 22 }, "7": { "elementId": 7, "typeId": 2, "pos": [100, 16], "rotate": 1, "typeIndex": 4, "packageId": 21 }, "8": { "elementId": 8, "typeId": 15, "pos": [110, 36], "rotate": 1, "typeIndex": 1, "packageId": 14 }, "9": { "elementId": 9, "typeId": 2, "pos": [83, 38], "rotate": 1, "typeIndex": 5, "packageId": 21 }, "10": { "elementId": 10, "typeId": 1, "pos": [75, 24], "rotate": 1, "typeIndex": 1, "packageId": 12 }, "11": { "elementId": 11, "typeId": 18, "pos": [75, 14], "rotate": 3, "typeIndex": 2, "packageId": 8 }, "12": { "elementId": 12, "typeId": 14, "pos": [110, 14], "rotate": 1, "typeIndex": 1, "packageId": 19 }, "13": { "elementId": 13, "typeId": 14, "pos": [67, 24], "rotate": 0, "typeIndex": 2, "packageId": 19 } }, "wires": { "0": { "wireId": 0, "source": { "type": "PIN", "elementId": 8, "pinIdx": "+" }, "target": { "type": "PIN", "elementId": 12, "pinIdx": "PIN2" }, "path": [[110, 34], [110, 17]] }, "1": { "wireId": 1, "source": { "type": "PIN", "elementId": 0, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [60, 43] }, "path": [[50, 42], [50, 43], [60, 43]] }, "2": { "wireId": 2, "source": { "type": "PIN", "elementId": 8, "pinIdx": "-" }, "target": { "type": "TCONN", "pos": [100, 43] }, "path": [[110, 38], [110, 43], [100, 43]] }, "3": { "wireId": 3, "source": { "type": "TCONN", "pos": [83, 43] }, "target": { "type": "TCONN", "pos": [100, 43] }, "path": [[83, 43], [100, 43]] }, "4": { "wireId": 4, "source": { "type": "PIN", "elementId": 4, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [70, 30] }, "path": [[69, 30], [70, 30]] }, "5": { "wireId": 5, "source": { "type": "PIN", "elementId": 9, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [83, 43] }, "path": [[83, 40], [83, 43]] }, "6": { "wireId": 6, "source": { "type": "PIN", "elementId": 9, "pinIdx": "PIN2" }, "target": { "type": "PIN", "elementId": 5, "pinIdx": "E" }, "path": [[83, 36], [83, 33]] }, "7": { "wireId": 7, "source": { "type": "PIN", "elementId": 11, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [80, 9] }, "path": [[75, 10], [75, 9], [80, 9]] }, "8": { "wireId": 8, "source": { "type": "PIN", "elementId": 12, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [100, 9] }, "path": [[110, 11], [110, 9], [100, 9]] }, "9": { "wireId": 9, "source": { "type": "PIN", "elementId": 7, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [100, 9] }, "path": [[100, 14], [100, 9]] }, "10": { "wireId": 10, "source": { "type": "PIN", "elementId": 5, "pinIdx": "B" }, "target": { "type": "TCONN", "pos": [75, 30] }, "path": [[79, 30], [75, 30]] }, "11": { "wireId": 11, "source": { "type": "PIN", "elementId": 7, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [100, 43] }, "path": [[100, 18], [100, 43]] }, "12": { "wireId": 12, "source": { "type": "PIN", "elementId": 10, "pinIdx": "1" }, "target": { "type": "TCONN", "pos": [75, 30] }, "path": [[75, 28], [75, 30]] }, "13": { "wireId": 13, "source": { "type": "PIN", "elementId": 10, "pinIdx": "0" }, "target": { "type": "PIN", "elementId": 11, "pinIdx": "PIN3" }, "path": [[75, 20], [75, 18]] }, "14": { "wireId": 14, "source": { "type": "TCONN", "pos": [100, 9] }, "target": { "type": "TCONN", "pos": [83, 9] }, "path": [[100, 9], [83, 9]] }, "15": { "wireId": 15, "source": { "type": "PIN", "elementId": 5, "pinIdx": "C" }, "target": { "type": "TCONN", "pos": [83, 9] }, "path": [[83, 27], [83, 9]] }, "16": { "wireId": 16, "source": { "type": "TCONN", "pos": [83, 9] }, "target": { "type": "TCONN", "pos": [80, 9] }, "path": [[83, 9], [80, 9]] }, "17": { "wireId": 17, "source": { "type": "PIN", "elementId": 11, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [80, 9] }, "path": [[78, 14], [80, 14], [80, 9]] }, "18": { "wireId": 18, "source": { "type": "PIN", "elementId": 4, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [64, 30] }, "path": [[65, 30], [64, 30]] }, "19": { "wireId": 19, "source": { "type": "PIN", "elementId": 0, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [58, 30] }, "path": [[50, 34], [50, 30], [58, 30]] }, "20": { "wireId": 20, "source": { "type": "PIN", "elementId": 2, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [58, 30] }, "path": [[58, 26], [58, 30]] }, "21": { "wireId": 21, "source": { "type": "PIN", "elementId": 2, "pinIdx": "PIN2" }, "target": { "type": "PIN", "elementId": 3, "pinIdx": "PIN1" }, "path": [[58, 22], [58, 15]] }, "22": { "wireId": 22, "source": { "type": "TCONN", "pos": [75, 30] }, "target": { "type": "TCONN", "pos": [70, 30] }, "path": [[75, 30], [70, 30]] }, "23": { "wireId": 23, "source": { "type": "PIN", "elementId": 13, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [70, 30] }, "path": [[70, 24], [70, 30]] }, "24": { "wireId": 24, "source": { "type": "TCONN", "pos": [58, 30] }, "target": { "type": "TCONN", "pos": [60, 30] }, "path": [[58, 30], [60, 30]] }, "25": { "wireId": 25, "source": { "type": "PIN", "elementId": 13, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [64, 30] }, "path": [[64, 24], [64, 30]] }, "26": { "wireId": 26, "source": { "type": "TCONN", "pos": [64, 30] }, "target": { "type": "TCONN", "pos": [60, 30] }, "path": [[64, 30], [60, 30]] }, "27": { "wireId": 27, "source": { "type": "PIN", "elementId": 1, "pinIdx": "PIN1" }, "target": { "type": "TCONN", "pos": [60, 30] }, "path": [[60, 36], [60, 30]] }, "28": { "wireId": 28, "source": { "type": "TCONN", "pos": [83, 43] }, "target": { "type": "TCONN", "pos": [60, 43] }, "path": [[83, 43], [60, 43]] }, "29": { "wireId": 29, "source": { "type": "PIN", "elementId": 1, "pinIdx": "PIN2" }, "target": { "type": "TCONN", "pos": [60, 43] }, "path": [[60, 40], [60, 43]] } } }, "view": { "zoomIndex": 6, "zoom": 6, "interval": 15, "x": 36.44000000000003, "y": -4.676666666666673 },
@@ -387,9 +396,9 @@ const data = {
 
 
 
+*/
 
 
 
 
-
-doRoute(data);
+//doRoute(data);

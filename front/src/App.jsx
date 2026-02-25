@@ -3,6 +3,8 @@ import Controls from './component/Controls';
 import SchemaCanvas from './component/SchemaCanvas';
 import ElementsList from './component/ElementsList';
 import Library from './component/Library';
+import RouteShow from './component/RouteShow';
+
 
 import { ObjectType } from './helpers/utils.js';
 import { LoadElems } from './helpers/geo.js';
@@ -11,7 +13,7 @@ import './css/flex.css'
 
 
 import { prettify } from './helpers/debug.js';
-import { Rect, Point } from './helpers/rect.js';
+// import { Rect, Point } from './helpers/rect.js';
 
 const defaultSchemaElements = {
     elements: {},
@@ -22,8 +24,16 @@ function App() {
     const [errorList, setErrorList] = useState([]);
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
+    const [showRoute, setShowRoute] = useState(false);
+
 
     const refSchemaCanvas = useRef(null);
+
+    const addErrors = useCallback((newErrors) => {
+        setErrorList(prev => [...prev, ...newErrors]);
+    }, []);
+
+    //const addErrors = (errors) => { setErrorList(prev => [...prev, ...errors]); }
 
     //const [libElements, setLibElements] = useState(        JSON.parse(localStorage.getItem('libElements')) || []);
     const [libElements, setLibElements] = useState([]);
@@ -33,7 +43,8 @@ function App() {
             const elems = {};
             const errors = [];
             await LoadElems(elems, errors);
-            setErrorList(prev => [...prev, ...errors]);
+            addErrors(errors)
+
             // console.log('loadedElems: ' + prettify(loadedElems, 1));
             setLibElements(elems);
         }
@@ -43,13 +54,9 @@ function App() {
     }, []);
 
 
-
     const [schemaElements, setSchemaElements] = useState(() => {
         const data = JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements;
-        for (const elemId in data.elements) {
-            data.elements[elemId].pos = new Point(...data.elements[elemId].pos);
-
-        }
+        //for (const elemId in data.elements) {            data.elements[elemId].pos = new Point(...data.elements[elemId].pos);        }
 
         return data;
     }
@@ -89,8 +96,25 @@ function App() {
             case 410:
                 console.log(prettify(libElements, 0));
                 break;
+            case 300: // route 
+                setShowRoute(prev => !prev);
+                break;
+
         }
+
     }
+
+    useEffect(() => {
+        const handleGlobalKeyDown = (event) => {
+            // Проверяем тильду
+            if (event.code === 'Backquote') {
+                setShowRoute(prev => !prev);
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, []);
 
     // update package
     const setPackage = (data) => {
@@ -167,8 +191,8 @@ function App() {
     };
 
     return (
-        <>
-
+        // <div className='app-container'>
+        <div className={`app-container ${showRoute ? 'route-mode' : ''}`}>
 
             {/* <div className="header"></div> */}
             <div className="control-bar">  <Controls onAction={handleAction} /></div>
@@ -177,47 +201,60 @@ function App() {
                     libs={libElements}
                 />
             </div>
-
-            <ElementsList
-                schemaElements={schemaElements.elements}
-                libElements={libElements}
-                hovered={hovered}
-                selected={selected}
-
-
-                hoveredChange={(obj) => setHovered(obj)}
-                selectedChange={(obj) => setSelected(obj)}
-                packageChange={data => setPackage(data)}
-            />
-
-            <div className="schema">
-                <SchemaCanvas
-                    ref={refSchemaCanvas}
+            <div className="elem-schema">
+                <ElementsList
+                    schemaElements={schemaElements.elements}
                     libElements={libElements}
-                    schemaElements={schemaElements}
-                    // onAddElement={handleAddElement}
-
                     hovered={hovered}
                     selected={selected}
 
-                    hoveredChanged={(obj) => setHovered(obj)}
-                    selectedChanged={(obj) => setSelected(obj)}
-                    onElemChanged={onElemChanged}
-                    onElemDeleted={onElemDeleted}
-                    onWiresChanged={onWiresChanged}
-                /></div>
+
+                    hoveredChange={(obj) => setHovered(obj)}
+                    selectedChange={(obj) => setSelected(obj)}
+                    packageChange={data => setPackage(data)}
+                />
+            </div>
+            <div className="schema">
+
+                {showRoute ?
+                    <RouteShow
+                        onError={addErrors}
+                    />
+
+
+                    :
+                    <SchemaCanvas
+                        ref={refSchemaCanvas}
+                        libElements={libElements}
+                        schemaElements={schemaElements}
+                        // onAddElement={handleAddElement}
+
+                        hovered={hovered}
+                        selected={selected}
+
+                        hoveredChanged={(obj) => setHovered(obj)}
+                        selectedChanged={(obj) => setSelected(obj)}
+                        onElemChanged={onElemChanged}
+                        onElemDeleted={onElemDeleted}
+                        onWiresChanged={onWiresChanged}
+                    />
+
+
+                }
+            </div>
+
             <div className="error-list">
                 {
                     errorList.map((e, i) => {
 
-                        return <div key={i}>{e}</div>
+                        return <div className={`error-code-${e.code}`} key={i}>{e.message}</div>
                     })
                 }
 
             </div>
 
 
-        </>
+        </div>
     )
 }
 

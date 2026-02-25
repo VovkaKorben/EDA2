@@ -1,5 +1,8 @@
 import { prettify } from './debug.js';
-import { expandRect, snapRect, addPoint, transformRect, ptInRect, pointsDistance, subPoint, isPointEqual } from './geo.js';
+import {
+    expandRect, snapRect, addPoint,  ptInRect, pointsDistance, subPoint, isPointEqual,
+    add
+} from './geo.js';
 const GRID_EXPAND = 20; // in parrots
 const DIRECTIONS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 const COMPONENT_WEIGHT = 10000;
@@ -193,7 +196,7 @@ export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
     // adding weights for ELEMENTS
     Object.values(schemaElements.elements).forEach((elem) => {
         let elemRect = libElements[elem.typeId].bounds[elem.rotate];
-        elemRect = transformRect(elemRect, elem.pos);
+        elemRect = add(elemRect, elem.pos);
         elemRect = snapRect(elemRect);
         fillGrid(elemRect, COMPONENT_WEIGHT);
     })

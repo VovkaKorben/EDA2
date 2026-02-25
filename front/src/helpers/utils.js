@@ -21,3 +21,10 @@ export const DrawColor = Object.freeze({
     HOVERED: '#40ff00d3',
     SELECTED: '#00ca00'
 });
+
+
+export const ErrorCodes = Object.freeze({
+    INFO: 0,
+    ERROR: 1,
+
+});

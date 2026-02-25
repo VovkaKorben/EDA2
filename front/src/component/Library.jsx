@@ -1,9 +1,9 @@
 import { useRef, useEffect } from 'react';
-// import { drawElement } from '../helpers/geo.js';
+import { getRectWidth, getRectHeight } from '../helpers/geo.js';
 import { dpr, drawElement, GRID_SIZE } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
 import { DrawColor } from '../helpers/utils.js';
-import { Rect, Point } from '../helpers/rect.js';
+// import { Rect, Point } from '../helpers/rect.js';
 import '../css/Library.css'
 
 const libWidth = 50;
@@ -29,14 +29,14 @@ const LibraryItem = ({ libElem }) => {
         const viewHeight = libHeight * (1 - elemMargin / 100 * 2);
         // get bounds for unrotated
         const elemBounds = libElem.bounds[0];
-        const kx = viewWidth / elemBounds.w;
-        const ky = viewHeight / elemBounds.h;
+        const kx = viewWidth / getRectWidth(elemBounds);
+        const ky = viewHeight / getRectHeight(elemBounds);
         const k = kx > ky ? ky : kx;
         const z = k / GRID_SIZE;
 
         const toDraw = {
             ...libElem,
-            pos: new Point(libWidth / 2, libHeight / 2),
+            pos: [libWidth / 2, libHeight / 2],
 
             zoom: z,
             rotate: 0,

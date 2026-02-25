@@ -20,13 +20,13 @@ select {
 
 /* "header header header" */
 
-#root {
+.app-container {
     --selection-bg: rgba(136, 255, 0, 0.399);
 
     display: grid;
     grid-template-columns: 1fr 200px 70px;
     grid-template-rows: 54px 1fr 100px;
-    height: 100vh;
+
     grid-auto-columns: 1fr;
     gap: 0px 0px;
     grid-auto-flow: row;
@@ -34,6 +34,22 @@ select {
         "control-bar control-bar control-bar"
         "schema elem-schema library"
         "schema error-list error-list";
+    height: 100vh;
+    width: 100vw;
+}
+
+.app-container.route-mode {
+    /* Меняем сетку на 2 колонки и 2 строки */
+    grid-template-columns: 1fr 270px;
+    grid-template-rows: 54px 1fr;
+    grid-template-areas:
+        "control-bar control-bar"
+        "schema error-list";
+}
+
+.app-container.route-mode .library,
+.app-container.route-mode .elem-schema {
+    display: none;
 }
 
 .schema {
@@ -44,12 +60,22 @@ select {
 }
 
 .error-list {
+    font-size: 14px;
     grid-area: error-list;
-    color: blue;
-    padding: 5px;
+  
+    padding: 0px 0px 0px 5px;
+    border: 1px dotted rgba(0, 0, 0, 0.328);
+    margin: 0px 5px 5px 0px;
+}
+.error-code-0
+{
+  color: #00003a;
 }
 
-
+.error-code-1
+{
+  color: #ff0000;
+}
 
 
 /* .schema-canvas {} */

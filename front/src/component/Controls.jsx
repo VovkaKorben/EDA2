@@ -11,7 +11,7 @@ const buttonsCodes = [
     { actionId: 21, caption: 'Clear wires', ico: 'clear_wires' },
 
     { actionId: 3, caption: 'Reset view', ico: 'view' },
-    { actionId: 4, caption: 'Route', ico: 'route' },
+    { actionId: 300, caption: 'Route', ico: 'route' },
     { actionId: 400, caption: 'log wires', ico: '' },
     { actionId: 410, caption: 'log lib', ico: '' }
 ]

@@ -115,7 +115,7 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered, selected
 
 
     return (
-        <div className="elements-schema">
+        <React.Fragment>
             {elemList.map((elem) => {
                 return <ElementEntry
                     key={elem.elementId}
@@ -139,7 +139,7 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered, selected
                 </div>
             </code>
 
-        </div>
+        </React.Fragment>
 
     );
 };

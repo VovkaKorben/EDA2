@@ -1,12 +1,16 @@
 import { prettify } from './debug.js';
 import { GRID_SIZE } from './draw.js';
 import { Rect, Point } from './rect.js';
-import { API_URL } from './utils.js';
-export const stringToPoint = (coordsString) => {
-    const exploded = coordsString.split(',');
+import { API_URL, ErrorCodes } from './utils.js';
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object' && value.constructor === Object;
+}
 
-    const point = new Point(+exploded[0], +exploded[1]);
-    return point;
+export const stringToCoords = (coordsString) => {
+    const exploded = coordsString.split(',');
+    const n = exploded.map(v => +v);
+    // const point = new Point(+exploded[0], +exploded[1]);
+    return n;
 
 
 }
@@ -41,9 +45,21 @@ export const pinsToPoints = (pinString) => {
     return rawPins;
 
 };
-export const _toFixed = (value, decimals=2) => {
-    const fixed = value.map(x => `${x.toFixed(decimals)}`);
-    return fixed.join(',');
+export const _toFixed = (value, decimals = 2) => {
+    let fixed;
+    if (Array.isArray(value)) {
+        fixed = value.map(x => `${x.toFixed(decimals)}`);
+    } else if (isPlainObject(value)) {
+
+        fixed = Object.entries(value).map(k => {
+
+            const x = `${k[0]}: ${k[1].toFixed(decimals)}`;
+            return x;
+        });
+
+    } else fixed = ['???'];
+
+    return fixed.join(', ');
 }
 
 export const rotate = (point, rotateIndex) => {
@@ -125,14 +141,7 @@ export const getPrimitiveBounds = (prim) => {
 
 
 }
-export const expandBounds = (current, add) => {
 
-    return [
-        Math.min(current[0], add[0]), Math.min(current[1], add[1]),
-        Math.max(current[2], add[2]), Math.max(current[3], add[3])
-    ]
-
-}
 
 export const expandBoundsByPoint = (current, point) => {
 
@@ -160,6 +169,7 @@ export const ptInRect = (rect, point) => {
         point[1] >= rect[1] &&
         point[1] <= rect[3];
 }
+export const rectFromPoint = (point) => [point[0], point[1], point[0], point[1]]
 
 export const floatEqual = (f1, f2, e = Number.EPSILON) => { return Math.abs(f1 - f2) < e; }
 export const leq = (a, b, e = Number.EPSILON) => { return (a < b) || (Math.abs(a - b) < e); }
@@ -174,13 +184,11 @@ export const subPoint = (point, delta) => {
 export const multiplyPoint = (point, m) => {
     return [point[0] * m, point[1] * m]
 }
-export const transformRect = (rect, delta) => {
-    return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]
-}
+//
 export const multiplyRect = (rect, m) => {
     return [rect[0] * m, rect[1] * m, rect[2] * m, rect[3] * m]
 }
-export const expandRect = (rect, x, y) => {
+export const expandRect = (rect, x, y = x) => {
     return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
 }
 // expands point to rect 
@@ -286,7 +294,8 @@ export const LoadElems = async (elems, errors) => {
 
         // return elem_data;
         if (!(resp.ok && result.success)) {
-            errors.push('error fetch data in loadLib');
+
+            errors.push({ code: ErrorCodes.ERROR, message: 'error fetch data in loadLib' });
             return;
         }
         let cnt = 0;
@@ -344,7 +353,7 @@ export const LoadElems = async (elems, errors) => {
             cnt++;
         });
         // console.log(prettify(elems, 3));
-        errors.push(`Loaded ${cnt} elements into library`);
+        errors.push({ code: ErrorCodes.INFO, message: `Loaded ${cnt} elements into library` });
 
     }
 
@@ -354,7 +363,8 @@ export const LoadElems = async (elems, errors) => {
 
         // return elem_data;
         if (!(resp.ok && result.success)) {
-            errors.push('error fetch data in loadPackage');
+            errors.push({ code: ErrorCodes.ERROR, message: 'error fetch data in loadPackage' });
+
             return;
         }
 
@@ -397,3 +407,16 @@ export const LoadElems = async (elems, errors) => {
 
 
 }
+
+// not used -----------------------------------------------
+/*export const expandBounds = (current, add) => {
+
+    return [
+        Math.min(current[0], add[0]), Math.min(current[1], add[1]),
+        Math.max(current[2], add[2]), Math.max(current[3], add[3])
+    ]
+
+}
+    
+export const transformRect = (rect, delta) => {    return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]}
+*/
