@@ -11,7 +11,7 @@ import {
     addPoint, ptInRect, roundPoint, isPointEqual,
     expandRect,
     union,
-    getRectHeight, getRectWidth,adjustCtx,adjustPoint
+    getRectHeight, getRectWidth, adjustCtx, adjustPoint
 } from '../helpers/geo.js';
 import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
 import { prepareAStarGrid, parrotsToFlat, doAStar, collapseRoute, flatToParrots, expandPath, splitPath, mergePaths } from '../helpers/astar.js';

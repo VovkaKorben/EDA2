@@ -14,7 +14,7 @@ function isPlainObject(value) {
 export const stringToCoords = (coordsString) => {
     const exploded = coordsString.split(',');
     const n = exploded.map(v => +v);
-    
+
     return n;
 
 
@@ -130,7 +130,7 @@ export const getPrimitiveBounds = (prim) => {
             }
         case 'P': // polyline/polygon
             {
-                let primBounds =[Infinity, Infinity, -Infinity, -Infinity]
+                let primBounds = [Infinity, Infinity, -Infinity, -Infinity]
 
                 for (let p = 0; p < prim.params.length - 1; p += 2) {
                     const point = [...prim.params.slice(p, p + 2)];
@@ -146,15 +146,6 @@ export const getPrimitiveBounds = (prim) => {
 
 }
 
-
-export const expandBoundsByPoint = (current, point) => {
-
-    return [
-        Math.min(current[0], point[0]), Math.min(current[1], point[1]),
-        Math.max(current[2], point[0]), Math.max(current[3], point[1])
-    ]
-
-}
 
 export const getRectWidth = (rect) => rect[2] - rect[0];
 export const getRectHeight = (rect) => rect[3] - rect[1];
@@ -173,7 +164,7 @@ export const ptInRect = (rect, point) => {
         point[1] >= rect[1] &&
         point[1] <= rect[3];
 }
-export const rectFromPoint = (point) => [point[0], point[1], point[0], point[1]]
+
 
 export const floatEqual = (f1, f2, e = Number.EPSILON) => { return Math.abs(f1 - f2) < e; }
 export const leq = (a, b, e = Number.EPSILON) => { return (a < b) || (Math.abs(a - b) < e); }
@@ -204,18 +195,28 @@ export const snapRect = (rect) => {
     return [Math.floor(x1), Math.floor(y1), Math.ceil(x2), Math.ceil(y2)];
 }
 
+export const snapRectFloat = (rect, value = 1) => {
+    let [x1, y1, x2, y2] = rect;
+    x1 = Math.floor(x1 / value) * value
+    y1 = Math.floor(y1 / value) * value
+    x2 = Math.ceil(x2 / value) * value
+    y2 = Math.ceil(y2 / value) * value
+
+    return [x1, y1, x2, y2];
+}
+
 
 export const rotatePrimitive = (prim, rotateIndex) => {
 
-    const rotatePoint = (pt, rotateIndex) => {
-        switch (rotateIndex) {
-            case 0: return [pt[0], pt[1]];
-            case 1: return [-pt[1], pt[0]];
-            case 2: return [-pt[0], -pt[1]];
-            case 3: return [pt[1], -pt[0]];
-            default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
-        }
-    }
+    /* const rotatePoint = (pt, rotateIndex) => {
+         switch (rotateIndex) {
+             case 0: return [pt[0], pt[1]];
+             case 1: return [-pt[1], pt[0]];
+             case 2: return [-pt[0], -pt[1]];
+             case 3: return [pt[1], -pt[0]];
+             default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
+         }
+     }*/
 
     try {
         const p = prim.params;
@@ -226,8 +227,8 @@ export const rotatePrimitive = (prim, rotateIndex) => {
                     //    const point1 = multiplyPoint([...p.slice(0, 2)], 1 / GRID_SIZE);
                     //  const point2 = multiplyPoint([...p.slice(2, 4)], 1 / GRID_SIZE);
                     params = [
-                        ...rotatePoint([...p.slice(0, 2)], rotateIndex),
-                        ...rotatePoint([...p.slice(2, 4)], rotateIndex)
+                        ...rotate([...p.slice(0, 2)], rotateIndex),
+                        ...rotate([...p.slice(2, 4)], rotateIndex)
                     ];
                     break;
                 }
@@ -236,15 +237,15 @@ export const rotatePrimitive = (prim, rotateIndex) => {
                     // const point1 = multiplyPoint([...p.slice(0, 2)], 1 / GRID_SIZE);
                     // const point2 = multiplyPoint([...p.slice(2, 4)], 1 / GRID_SIZE);
                     params = [
-                        ...rotatePoint([...p.slice(0, 2)], rotateIndex),
-                        ...rotatePoint([...p.slice(2, 4)], rotateIndex)
+                        ...rotate([...p.slice(0, 2)], rotateIndex),
+                        ...rotate([...p.slice(2, 4)], rotateIndex)
                     ];
                     break;
                 }
             case 'C': // Circle
 
                 params = [
-                    ...rotatePoint(p.slice(0, 2), rotateIndex),
+                    ...rotate(p.slice(0, 2), rotateIndex),
                     ...p.slice(2, 3)
                 ];
                 break;
@@ -253,7 +254,7 @@ export const rotatePrimitive = (prim, rotateIndex) => {
                     params = [];
                     const pointsCount = (p.length / 2) | 0;
                     for (let ptIndex = 0; ptIndex < pointsCount; ptIndex++) {
-                        params.push(...rotatePoint(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
+                        params.push(...rotate(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
                     }
                     // append poly mode
                     params.push(...p.slice(pointsCount * 2, pointsCount * 2 + 1));
@@ -262,7 +263,7 @@ export const rotatePrimitive = (prim, rotateIndex) => {
 
             case 'A':// Arc
                 {
-                    const center = rotatePoint(p.slice(0, 2), rotateIndex)
+                    const center = rotate(p.slice(0, 2), rotateIndex)
                     const [degStart] = p.slice(3, 4);
                     const radStart = ((degStart + rotateIndex * 90) % 360) / 180 * Math.PI;
                     let [degEnd] = p.slice(4, 5);
@@ -423,4 +424,16 @@ export const LoadElems = async (elems, errors) => {
 }
     
 export const transformRect = (rect, delta) => {    return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]}
+*/
+/*
+export const expandBoundsByPoint = (current, point) => {
+
+    return [
+        Math.min(current[0], point[0]), Math.min(current[1], point[1]),
+        Math.max(current[2], point[0]), Math.max(current[3], point[1])
+    ]
+
+}
+
+export const rectFromPoint = (point) => [point[0], point[1], point[0], point[1]]
 */

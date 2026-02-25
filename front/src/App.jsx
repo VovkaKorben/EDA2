@@ -180,7 +180,7 @@ function App() {
 
 
     useEffect(() => {
-        console.log(`libElements: ${libElements?.length}`)
+        console.log(`libElements: ${Object.keys(libElements).length}`)
     }, [libElements]);
 
 

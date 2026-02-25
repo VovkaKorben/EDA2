@@ -2,13 +2,16 @@ import {
     getPrimitiveBounds, stringToCoords, turtleToParams, pinsToPoints,
     getRectWidth, getRectHeight,
     floatEqual, leq, geq,
-    union, expandRect
+    union, expandRect, snapRectFloat,
+    divide,
+    snapRect,
+    roundPoint
 } from './geo.js';
 import { Rect } from './rect.js';
 import { API_URL, ErrorCodes } from './utils.js';
 import { prettify } from './debug.js';
 
-
+export const PCB_UNIT = 25.4 / 20; // inch/20 = 50mil
 const packRects = (inputRects) => {
     let binW = 0;
     let binH = 0;
@@ -290,6 +293,10 @@ const convertPackage = (pkg) => {
 
     // expand bound with pins
     Object.values(pins).forEach(pin => bounds = union(bounds, pin));
+
+    // snap bounds to grid
+    bounds = snapRectFloat(bounds, PCB_UNIT);
+    
 
     const result = {
         ...pkg,
