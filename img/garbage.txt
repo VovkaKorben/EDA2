@@ -84,3 +84,198 @@
 
 {type: 'PIN', elementId: 1770957831203, pinIdx: 'PIN1', pinCoords: Array(2)}
 {type: 'PIN', elementId: 1770957832868, pinIdx: 'PIN2', pinCoords: Array(2)}
+
+
+
+// not used -----------------------------------------------
+/*export const expandBounds = (current, add) => {
+
+    return [
+        Math.min(current[0], add[0]), Math.min(current[1], add[1]),
+        Math.max(current[2], add[2]), Math.max(current[3], add[3])
+    ]
+
+}
+    
+export const transformRect = (rect, delta) => {    return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]}
+*/
+/*
+export const expandBoundsByPoint = (current, point) => {
+
+    return [
+        Math.min(current[0], point[0]), Math.min(current[1], point[1]),
+        Math.max(current[2], point[0]), Math.max(current[3], point[1])
+    ]
+
+}
+
+export const rectFromPoint = (point) => [point[0], point[1], point[0], point[1]]
+
+
+export const rotate2 = (figure, rotateIndex) => {
+    const maxCnt = (Math.floor(figure.length / 2)) * 2
+    for (let idx = 0; idx < maxCnt; idx += 2) {
+        switch (rotateIndex) {
+            case 0: return [figure[idx+0], figure[idx+1]]
+            case 1: return [-figure[idx+1], figure[idx+0]]
+            case 2: return [-figure[idx+0], -figure[idx+1]]
+            case 3: return [figure[idx+1], -figure[idx+0]]
+        }
+    }
+
+}
+*/
+
+/* const rotatePoint = (pt, rotateIndex) => {
+     switch (rotateIndex) {
+         case 0: return [pt[0], pt[1]];
+         case 1: return [-pt[1], pt[0]];
+         case 2: return [-pt[0], -pt[1]];
+         case 3: return [pt[1], -pt[0]];
+         default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
+     }
+ }*/
+
+/*
+export const rotatePrimitive = (prim, rotateIndex) => {
+
+    try {
+        const p = prim.params;
+        let params;
+        switch (prim.code) {
+            case 'R': // Rectangle
+                {
+                    //    const point1 = multiplyPoint([...p.slice(0, 2)], 1 / GRID_SIZE);
+                    //  const point2 = multiplyPoint([...p.slice(2, 4)], 1 / GRID_SIZE);
+                    params = [
+                        ...rotate([...p.slice(0, 2)], rotateIndex),
+                        ...rotate([...p.slice(2, 4)], rotateIndex)
+                    ];
+                    break;
+                }
+            case 'L': // Line
+                {
+                    // const point1 = multiplyPoint([...p.slice(0, 2)], 1 / GRID_SIZE);
+                    // const point2 = multiplyPoint([...p.slice(2, 4)], 1 / GRID_SIZE);
+                    params = [
+                        ...rotate([...p.slice(0, 2)], rotateIndex),
+                        ...rotate([...p.slice(2, 4)], rotateIndex)
+                    ];
+                    break;
+                }
+            case 'C': // Circle
+
+                params = [
+                    ...rotate(p.slice(0, 2), rotateIndex),
+                    ...p.slice(2, 3)
+                ];
+                break;
+            case 'P': // Polyline / Polygon
+                {
+                    params = [];
+                    const pointsCount = (p.length / 2) | 0;
+                    for (let ptIndex = 0; ptIndex < pointsCount; ptIndex++) {
+                        params.push(...rotate(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
+                    }
+                    // append poly mode
+                    params.push(...p.slice(pointsCount * 2, pointsCount * 2 + 1));
+
+                } break;
+
+            case 'A':// Arc
+                {
+                    const center = rotate(p.slice(0, 2), rotateIndex)
+                    const [degStart] = p.slice(3, 4);
+                    const radStart = ((degStart + rotateIndex * 90) % 360) / 180 * Math.PI;
+                    let [degEnd] = p.slice(4, 5);
+                    const radEnd = ((degEnd + rotateIndex * 90) % 360) / 180 * Math.PI;
+
+                    params = [
+                        ...center,
+                        ...p.slice(2, 3),
+                        radStart, radEnd,
+                        ...p.slice(5, 6)
+                    ];
+
+                    // console.log('arc');
+
+                }; break;
+
+
+            default: throw new Error(`Invalid primitive code: ${prim.code}`);
+        }
+        return { 'code': prim.code, params: params };
+    } catch (e) {
+        console.error(`error: ${e}`);
+        return { 'code': prim.code, params: [] };
+    }
+}
+    */
+    export const multiplyPoint = (point, m) => {
+    return [point[0] * m, point[1] * m]
+}
+//
+export const multiplyRect = (rect, m) => {
+    return [rect[0] * m, rect[1] * m, rect[2] * m, rect[3] * m]
+}
+
+
+/*export const collapseRoute = (parrots) => {
+    // console.log(prettify(route, 0));
+    let path = [];
+    if (parrots.length > 1) {
+
+
+        // simplify path
+        let prevDirection;
+        path.push(parrots[0]);
+        for (let i = 1; i < parrots.length; i++) {
+
+            const dirCoords = subPoint(parrots[i], parrots[i - 1]);
+            const direction = DIRECTIONS.findIndex(t => t[0] === dirCoords[0] && t[1] === dirCoords[1]);
+
+            // console.log(`${gridIndexes[i - 1]} -> ${gridIndexes[i]}    C:${dirCoords} DI:${direction}`);
+
+            if (i > 1) {
+                if (prevDirection !== direction) {
+                    path.push(parrots[i - 1]);
+                    // console.log(`***point`)
+                }
+            }
+            prevDirection = direction;
+        }
+        path.push(parrots[parrots.length - 1]);
+
+    }
+    return path;
+}*/
+
+
+    /*
+     useEffect(() => {
+         if (!routeData) return;
+ 
+         const log = [];
+         if (routeData.errors?.length > 0) {
+             log.push(...routeData.errors);
+         } else {
+             log.push({
+                 code: ErrorCodes.INFO,
+                 message: `PCB size: ${routeData.data.binW}*${routeData.data.binH}mm`
+             });
+         }
+ 
+ 
+ 
+ 
+         if (log.length > 0) {
+             onError?.(log);
+         }
+     }, [routeData, onError]);
+     */
+       // font update 
+    useEffect(() => {
+        document.fonts.ready.then(() => {
+            if (drawRoute) drawRoute();
+        });
+    }, [drawRoute]);

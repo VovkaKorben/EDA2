@@ -109,44 +109,14 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
         if (Object.keys(libElements).length > 0) runRouting();
     }, [libElements, schemaElements, onError]);
 
-    /*
-     useEffect(() => {
-         if (!routeData) return;
- 
-         const log = [];
-         if (routeData.errors?.length > 0) {
-             log.push(...routeData.errors);
-         } else {
-             log.push({
-                 code: ErrorCodes.INFO,
-                 message: `PCB size: ${routeData.data.binW}*${routeData.data.binH}mm`
-             });
-         }
- 
- 
- 
- 
-         if (log.length > 0) {
-             onError?.(log);
-         }
-     }, [routeData, onError]);
-     */
-    // font update 
-    useEffect(() => {
-        document.fonts.ready.then(() => {
-            if (drawRoute) drawRoute();
-        });
-    }, [drawRoute]);
+
 
 
     useEffect(() => {
-        // drawRef.current = drawRoute;
-        const frameId = requestAnimationFrame(() => {
-            drawRoute();
-        });
-
+        const frameId = requestAnimationFrame(() => { drawRoute(); });
         return () => cancelAnimationFrame(frameId);
     }, [drawRoute]);
+
     // update canvas size
     useEffect(() => {
 

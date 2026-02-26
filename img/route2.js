@@ -1,12 +1,12 @@
-import { API_URL } from './utils.js';
+import { API_URL } from '../front/src/helpers/utils.js';
 // import { prettify } from './debug.js';
 import {
     expandPoint, getPrimitiveBounds, expandBounds, stringToPoint, turtleToParams, pinsToPoints, expandBoundsByPoint,
     getRectWidth, getRectHeight,
     floatEqual, leq, geq
-} from './geo.js';
+} from '../front/src/helpers/geo.js';
 // import { prettify } from './debug.js';
-import { Rect } from './rect.js';
+import { Rect } from '../front/src/helpers/rect.js';
 
 // 1. берем черепашку,считаем границы
 // 2. берем текст, считаем точку 2.5мм вверх+вниз, расширяем

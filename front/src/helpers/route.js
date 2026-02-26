@@ -1,8 +1,8 @@
 import {
-    getPrimitiveBounds, stringToCoords, turtleToParams, pinsToPoints,
+    getPrimitiveBounds, stringToCoords, parseTurtle, pinsToPoints,
     getRectWidth, getRectHeight,
     floatEqual, leq, geq,
-    union, expandRect, snapRectFloat,
+    union, snapRectFloat, rotate, expand,
     divide,
     snapRect,
     roundPoint
@@ -12,6 +12,7 @@ import { API_URL, ErrorCodes } from './utils.js';
 import { prettify } from './debug.js';
 
 export const PCB_UNIT = 25.4 / 20; // inch/20 = 50mil
+const E = 0.001;
 const packRects = (inputRects) => {
     let binW = 0;
     let binH = 0;
@@ -26,7 +27,7 @@ const packRects = (inputRects) => {
 
         for (const free of freeRects) {
             // Проверка без поворота
-            if (geq(free.w, rect.w) && geq(free.h, rect.h)) {
+            if (geq(free.w, rect.w, E) && geq(free.h, rect.h, E)) {
                 const leftoverW = free.w - rect.w;
                 const leftoverH = free.h - rect.h;
                 const shortSideFit = Math.min(leftoverW, leftoverH);
@@ -38,7 +39,7 @@ const packRects = (inputRects) => {
                 }
             }
             // Проверка с поворотом на 90 градусов
-            if (geq(free.w, rect.h) && geq(free.h, rect.w)) {
+            if (geq(free.w, rect.h, E) && geq(free.h, rect.w, E)) {
                 const leftoverW = free.w - rect.h;
                 const leftoverH = free.h - rect.w;
                 const shortSideFit = Math.min(leftoverW, leftoverH);
@@ -174,40 +175,44 @@ const packRects = (inputRects) => {
         }
     }
 
+    try {
+        // Sort inputRects by Area descending
+        inputRects.sort((a, b) => b.area - a.area);
 
-    // Sort inputRects by Area descending
-    inputRects.sort((a, b) => b.area - a.area);
+        for (let rect of inputRects) {
+            // 1. Пытаемся найти место в текущих границах
+            let fit = findBestFit(rect, freeRects);
 
-    for (let rect of inputRects) {
-        // 1. Пытаемся найти место в текущих границах
-        let fit = findBestFit(rect, freeRects);
+            // 2. Если место не найдено, расширяем контейнер
+            if (fit.bestRect === null) {
+                expandBin(rect);
+                fit = findBestFit(rect, freeRects);
+            }
 
-        // 2. Если место не найдено, расширяем контейнер
-        if (fit.bestRect === null) {
-            expandBin(rect);
-            fit = findBestFit(rect, freeRects);
+            let bestFreeRect = fit.bestRect;
+            rect.rotate = fit.rotated;
+
+            // 3. Размещаем прямоугольник с учетом возможного поворота
+            const finalW = rect.rotate ? rect.h : rect.w;
+            const finalH = rect.rotate ? rect.w : rect.h;
+
+            rect.l = bestFreeRect.l //+ (bestFreeRect.w - finalW) / 2;
+            rect.t = bestFreeRect.t //+ (bestFreeRect.h - finalH) / 2;
+            rect.r = rect.l + finalW;
+            rect.b = rect.t + finalH;
+            packedRects.push(rect);
+
+            // 4. Обновляем список свободных областей (Split & Prune)
+            updateFreeRects(rect);
         }
+        return {
+            binW: binW,
+            binH: binH,
+            rects: packedRects
+        }
+    } catch (e) {
 
-        let bestFreeRect = fit.bestRect;
-        rect.rotate = fit.rotated;
-
-        // 3. Размещаем прямоугольник с учетом возможного поворота
-        const finalW = rect.rotate ? rect.h : rect.w;
-        const finalH = rect.rotate ? rect.w : rect.h;
-
-        rect.l = bestFreeRect.l //+ (bestFreeRect.w - finalW) / 2;
-        rect.t = bestFreeRect.t //+ (bestFreeRect.h - finalH) / 2;
-        rect.r = rect.l + finalW;
-        rect.b = rect.t + finalH;
-        packedRects.push(rect);
-
-        // 4. Обновляем список свободных областей (Split & Prune)
-        updateFreeRects(rect);
-    }
-    return {
-        binW: binW,
-        binH: binH,
-        rects: packedRects
+        throw new Error(`packRects error: ${e.message}`);
     }
 };
 
@@ -269,44 +274,48 @@ const fetchPackages = async (packageIds) => {
 };
 
 const convertPackage = (pkg) => {
-    // console.log(prettify(p,0));
+    try {
+        // console.log(prettify(p,0));
 
 
-    // extract coords from strings
-    const turtle = turtleToParams(pkg.turtle);
-    const pins = pinsToPoints(pkg.pins);
-    const textPos = stringToCoords(pkg.textPos);
-    // console.log(pkg);
+        // extract coords from strings
+        const turtle = parseTurtle(pkg.turtle);
+        const pins = pinsToPoints(pkg.pins);
+        const textPos = stringToCoords(pkg.textPos);
+        // console.log(pkg);
 
-    // calculate turtle bounds
-    let bounds = [Infinity, Infinity, -Infinity, -Infinity];
-    for (const prim of turtle) {
-        const primitiveBounds = getPrimitiveBounds(prim);
-        bounds = union(bounds, primitiveBounds);
+        // calculate turtle bounds
+        let bounds = [Infinity, Infinity, -Infinity, -Infinity];
+        for (const prim of turtle) {
+            const primitiveBounds = getPrimitiveBounds(prim);
+            bounds = union(bounds, primitiveBounds);
+        }
+
+        // expand text pos point
+        let textRect = [...textPos, ...textPos];
+        textRect = expand(textRect, 0, 1.5); // text height 1.5*2 = 3mm
+        bounds = union(bounds, textRect);
+
+
+        // expand bound with pins
+        Object.values(pins).forEach(pin => bounds = union(bounds, pin));
+
+        // snap bounds to grid
+        bounds = snapRectFloat(bounds, PCB_UNIT);
+
+
+        const result = {
+            ...pkg,
+            turtle: turtle,
+            pins: pins,
+            textPos: textPos,
+            bounds: bounds,
+        };
+        // console.log(prettify(pkg, 1));
+        return result;
+    } catch (e) {
+        throw new Error(`convertPackage ${e.message}`);
     }
-
-    // expand text pos point
-    let textRect = [...textPos, ...textPos];
-    textRect = expandRect(textRect, 0, 1.5); // text height 1.5*2 = 3mm
-    bounds = union(bounds, textRect);
-
-
-    // expand bound with pins
-    Object.values(pins).forEach(pin => bounds = union(bounds, pin));
-
-    // snap bounds to grid
-    bounds = snapRectFloat(bounds, PCB_UNIT);
-    
-
-    const result = {
-        ...pkg,
-        turtle: turtle,
-        pins: pins,
-        textPos: textPos,
-        bounds: bounds,
-    };
-    // console.log(prettify(pkg, 1));
-    return result;
 };
 const convertPackages = (packages) => {
     const result = {};
@@ -369,18 +378,52 @@ export const doRoute = async (data) => {
             pkgRect.elementId = elem.elementId;
 
             packagesRects.push(pkgRect);
+            console.log(pkgRect.w, pkgRect.h);
         }
 
-        //console.log(prettify(packagesRects, 1));
-        // Object.values(packagesRects).forEach(v => { console.log(`ID: ${v.elementId}, Size: ${v.w}x${v.h}`); });
         // pack rects on the PCB
         const packResult = packRects(packagesRects);
         packResult.binW = Math.ceil(packResult.binW);
         packResult.binH = Math.ceil(packResult.binH);
+
+
+        // convert packed rects to draw-structure
+        const toDraw = {}
+        for (const elem of Object.values(data.schemaElements.elements)) {
+            const lib = data.libElements[elem.typeId]
+            const elemId = elem.elementId;
+
+            // find in packed 
+            const packedRect = packResult.rects.find(pr => pr.elementId === elemId)
+            if (!packedRect) {
+                return [{ code: ErrorCodes.ERROR, message: `ElementID ${elemId} not found in packed rects` }]
+            }
+            const { packageId } = elem;
+            const pkg = packagesData[packageId];
+
+
+            const textPos = rotate(pkg.textPos, packedRect.rotate)
+            const text = `${lib.abbr}${elem.typeIndex}`
+
+            toDraw[elemId] = {
+                elementId: elemId,
+                packageId: packageId,
+                textPos: textPos,
+                text: text,
+                pos: [packedRect.l, packedRect.t]
+            }
+            // rotate points
+            console.log(packedRect);
+
+        }
+
+
+
+
         // console.log(prettify(packResult, 2));
-        return { data: packResult }
+        return { data: toDraw }
     } catch (err) {
-        console.error(err.message);
+        console.error(`[doRoute] ${err.message}`);
     }
 }
 

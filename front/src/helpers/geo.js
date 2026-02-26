@@ -19,26 +19,7 @@ export const stringToCoords = (coordsString) => {
 
 
 }
-export const turtleToParams = (turtleString) => {
-    const rawPrimitives = [];
 
-    let trimTurtle = turtleString;
-    if (trimTurtle) {
-        trimTurtle = trimTurtle.replace(/\s/g, '');
-
-        const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
-        // split each primitive to CODE + PARAMS
-        for (const prim of primitiveGroup) {
-            const parsedPrim = {
-                code: prim[1].toUpperCase(),
-                params: prim[2].split(',').map((i) => parseFloat(i))
-            };
-            rawPrimitives.push(parsedPrim);
-        }
-
-    }
-    return rawPrimitives;
-};
 export const pinsToPoints = (pinString) => {
     const rawPins = {};
     let pinsGroup = pinString || '';
@@ -67,14 +48,36 @@ export const _toFixed = (value, decimals = 2) => {
     return fixed.join(', ');
 }
 
-export const rotate = (point, rotateIndex) => {
-    switch (rotateIndex) {
-        case 0: return [point[0], point[1]]
-        case 1: return [-point[1], point[0]]
-        case 2: return [-point[0], -point[1]]
-        case 3: return [point[1], -point[0]]
+export const rotate = (figure, rotateIndex) => {
+
+    const result = [];
+    // const maxCnt = (Math.floor(figure.length / 2)) * 2
+    for (let idx = 0; idx < figure.length; idx += 2) {
+        switch (rotateIndex) {
+            case 0: // 0 deg
+                result[idx + 0] = figure[idx + 0]
+                result[idx + 1] = figure[idx + 1]
+                break;
+            case 1: // 90 deg
+                result[idx + 0] = -figure[idx + 1]
+                result[idx + 1] = figure[idx + 0]
+                break;
+
+            case 2: // 180 deg
+                result[idx + 0] = -figure[idx + 0]
+                result[idx + 1] = figure[idx + 1]
+                break;
+
+            case 3: // 270 deg
+                result[idx + 0] = figure[idx + 1]
+                result[idx + 1] = -figure[idx + 0]
+                break;
+        }
     }
+    return result;
 }
+
+
 export const union = (rect, other) => {
     const otherLength = other.length;
     return [
@@ -84,11 +87,17 @@ export const union = (rect, other) => {
         Math.max(rect[3], other[3 % otherLength])
     ];
 }
+export const multiply = (figure, value) => {
 
+    return figure.map(d => d * value);
+}
 export const divide = (figure, value) => {
 
     return figure.map(d => d / value);
 }
+
+
+
 export const add = (figure, other) => {
     const otherLength = other.length;
     const result = figure.map((v, i) => {
@@ -97,7 +106,9 @@ export const add = (figure, other) => {
     });
     return result;
 }
-
+export const expand = (rect, x, y = x) => {
+    return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
+}
 export const getPrimitiveBounds = (prim) => {
 
 
@@ -105,40 +116,19 @@ export const getPrimitiveBounds = (prim) => {
     switch (prim.code) {
 
 
-        case 'R': { // rectangle
-            const [x, y, w, h] = prim.params;
-            const x2 = x + w, y2 = y + h;
-            return [
-                Math.min(x, x2), Math.min(y, y2),
-                Math.max(x, x2), Math.max(y, y2)
-            ];
-        }
-
-        case 'L': // line
-            {
-                const [x, y, x2, y2] = prim.params;
-                return [
-                    Math.min(x, x2), Math.min(y, y2),
-                    Math.max(x, x2), Math.max(y, y2)
-                ];
-            }
-        case 'C': // circle
         case 'A': // arc - for simplification
             {
-                const [x, y, r] = prim.params;
-                return [x - r, y - r, x + r, y + r];
+                let primBounds = [...prim.center, ...prim.center]
+                primBounds = expand(primBounds, prim.radius);
+                return primBounds;
             }
         case 'P': // polyline/polygon
             {
                 let primBounds = [Infinity, Infinity, -Infinity, -Infinity]
-
-                for (let p = 0; p < prim.params.length - 1; p += 2) {
-                    const point = [...prim.params.slice(p, p + 2)];
-                    primBounds = union(primBounds, point);
+                for (const pt of prim.points) {
+                    primBounds = union(primBounds, pt);
                 }
                 return primBounds;
-
-
             }
         default: throw new Error(`Invalid primitive:`);
     }
@@ -176,20 +166,9 @@ export const addPoint = (point, delta) => {
 export const subPoint = (point, delta) => {
     return [point[0] - delta[0], point[1] - delta[1]]
 }
-export const multiplyPoint = (point, m) => {
-    return [point[0] * m, point[1] * m]
-}
-//
-export const multiplyRect = (rect, m) => {
-    return [rect[0] * m, rect[1] * m, rect[2] * m, rect[3] * m]
-}
-export const expandRect = (rect, x, y = x) => {
-    return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
-}
-// expands point to rect 
-export const expandPoint = (point, x, y) => {
-    return [point[0] - x, point[1] - y, point[0] + x, point[1] + y]
-}
+
+
+
 export const snapRect = (rect) => {
     const [x1, y1, x2, y2] = rect;
     return [Math.floor(x1), Math.floor(y1), Math.ceil(x2), Math.ceil(y2)];
@@ -206,94 +185,67 @@ export const snapRectFloat = (rect, value = 1) => {
 }
 
 
-export const rotatePrimitive = (prim, rotateIndex) => {
-
-    /* const rotatePoint = (pt, rotateIndex) => {
-         switch (rotateIndex) {
-             case 0: return [pt[0], pt[1]];
-             case 1: return [-pt[1], pt[0]];
-             case 2: return [-pt[0], -pt[1]];
-             case 3: return [pt[1], -pt[0]];
-             default: throw new Error(`Invalid rotate index: ${rotateIndex}`);
-         }
-     }*/
-
-    try {
-        const p = prim.params;
-        let params;
-        switch (prim.code) {
-            case 'R': // Rectangle
-                {
-                    //    const point1 = multiplyPoint([...p.slice(0, 2)], 1 / GRID_SIZE);
-                    //  const point2 = multiplyPoint([...p.slice(2, 4)], 1 / GRID_SIZE);
-                    params = [
-                        ...rotate([...p.slice(0, 2)], rotateIndex),
-                        ...rotate([...p.slice(2, 4)], rotateIndex)
-                    ];
-                    break;
-                }
-            case 'L': // Line
-                {
-                    // const point1 = multiplyPoint([...p.slice(0, 2)], 1 / GRID_SIZE);
-                    // const point2 = multiplyPoint([...p.slice(2, 4)], 1 / GRID_SIZE);
-                    params = [
-                        ...rotate([...p.slice(0, 2)], rotateIndex),
-                        ...rotate([...p.slice(2, 4)], rotateIndex)
-                    ];
-                    break;
-                }
-            case 'C': // Circle
-
-                params = [
-                    ...rotate(p.slice(0, 2), rotateIndex),
-                    ...p.slice(2, 3)
-                ];
-                break;
-            case 'P': // Polyline / Polygon
-                {
-                    params = [];
-                    const pointsCount = (p.length / 2) | 0;
-                    for (let ptIndex = 0; ptIndex < pointsCount; ptIndex++) {
-                        params.push(...rotate(p.slice(ptIndex * 2, ptIndex * 2 + 2), rotateIndex));
-                    }
-                    // append poly mode
-                    params.push(...p.slice(pointsCount * 2, pointsCount * 2 + 1));
-
-                } break;
-
-            case 'A':// Arc
-                {
-                    const center = rotate(p.slice(0, 2), rotateIndex)
-                    const [degStart] = p.slice(3, 4);
-                    const radStart = ((degStart + rotateIndex * 90) % 360) / 180 * Math.PI;
-                    let [degEnd] = p.slice(4, 5);
-                    const radEnd = ((degEnd + rotateIndex * 90) % 360) / 180 * Math.PI;
-
-                    params = [
-                        ...center,
-                        ...p.slice(2, 3),
-                        radStart, radEnd,
-                        ...p.slice(5, 6)
-                    ];
-
-                    // console.log('arc');
-
-                }; break;
-
-
-            default: throw new Error(`Invalid primitive code: ${prim.code}`);
-        }
-        return { 'code': prim.code, params: params };
-    } catch (e) {
-        console.error(`error: ${e}`);
-        return { 'code': prim.code, params: [] };
-    }
-}
 export const isPointEqual = (pt1, pt2) => pt1[0] === pt2[0] && pt1[1] === pt2[1];
 
+export const parseTurtle = (turtleString) => {
+    //console.log(turtleString);
+    try {
+        const rawPrimitives = [];
+
+        let trimTurtle = turtleString;
+        if (trimTurtle) {
+            trimTurtle = trimTurtle.replace(/\s/g, '');
+
+            const primitiveGroup = [...trimTurtle.matchAll(/([A-Z])\((.*?)\)/gim)]
+            // split each primitive to CODE + PARAMS
+            for (const prim of primitiveGroup) {
+                //const parsedPrim = {
+                const code = prim[1].toUpperCase();
+                const rawParams = prim[2].split(',').map((i) => parseFloat(i));
+
+                let params = {};
+                switch (code) {
+                    case "P": { // polyline
+                        params.points = [];
+
+                        for (let p = 0; p < Math.floor(rawParams.length / 2); p++) {
+                            params.points[p] = rawParams.slice(p * 2, p * 2 + 2);
+                        }
+                        // if params count is odd get last as style
+                        params.style = rawParams.length % 2 ? rawParams.at(-1) : 0;
+                        break;
+                    }
+                    case "A":
+                        // C- code
+                        // console.log(rawParams);
+                        params.center = rawParams.slice(0, 2);
+                        params.radius = rawParams[2];
+                        params.start = (rawParams.length > 3 ? rawParams[3] : 0) * Math.PI / 180;
+                        params.end = (rawParams.length > 4 ? rawParams[4] : 360) * Math.PI / 180;
+                        break;
+                    default:
+                        throw new Error(`Invalid primitive code <${code}>`);
+                    // console.error(`Invalid primitive code <${code}>`);
+                }
+
+                rawPrimitives.push({
+                    code: code,
+                    ...params
+                });
+            }
+
+
+        }
+        return rawPrimitives;
+    } catch (e) {
+        throw new Error(`Parsing '${turtleString}' error: ${e.message}`);
+
+    }
+};
 export const LoadElems = async (elems, errors) => {
 
     const loadLib = async (elems, errors) => {
+
         const resp = await fetch(`${API_URL}library`);
         const result = await resp.json();
 
@@ -305,57 +257,59 @@ export const LoadElems = async (elems, errors) => {
         }
         let cnt = 0;
         result.data.forEach((rawLib) => {
-            // explode primitives to objects
-            const rawPrimitives = turtleToParams(rawLib.turtle);
+            try { // explode primitives to objects
+                const turtle = parseTurtle(rawLib.turtle);
 
-            // explode pins to coords
-            const rawPins = pinsToPoints(rawLib.pins);
+                // explode pins to coords
+                const rawPins = pinsToPoints(rawLib.pins);
 
-            // prepare for element rotating
-            const turtle = Array.from({ length: 4 }, () => []);
-            const pins = Array.from({ length: 4 }, () => ({}));
-            const bounds = Array.from({ length: 4 }, () => [Infinity, Infinity, -Infinity, -Infinity]);
+                // prepare for element rotating
+                //    [];// Array.from({ length: 4 }, () => []);
+                const pins = Array.from({ length: 4 }, () => ({}));
 
-            for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
-
-                // rotate all primiti ves
-                // bounds[rotateIndex] =;
-                for (const prim of rawPrimitives) {
-                    const rotatedPrimitive = rotatePrimitive(prim, rotateIndex);
-                    turtle[rotateIndex].push(rotatedPrimitive);
-
+                let rawBounds = [Infinity, Infinity, -Infinity, -Infinity]
+                for (const prim of turtle) {
                     // get bounds for current and accumulate
-                    const primitiveBounds = getPrimitiveBounds(rotatedPrimitive);
-                    bounds[rotateIndex] = union(bounds[rotateIndex], primitiveBounds);
+                    const primitiveBounds = getPrimitiveBounds(prim);
+                    rawBounds = union(rawBounds, primitiveBounds);
+                }
+                rawBounds = divide(rawBounds, GRID_SIZE);
+
+                const bounds = [];
+                for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
+
+                    bounds[rotateIndex] = rotate(rawBounds, rotateIndex);
+
+
+                    // rotate pins
+                    for (let [pinName, pinCoords] of Object.entries(rawPins)) {
+                        pinCoords = divide(pinCoords, GRID_SIZE);
+                        pinCoords = rotate(pinCoords, rotateIndex);
+                        pins[rotateIndex][pinName] = pinCoords;
+
+
+                    }
 
                 }
-                bounds[rotateIndex] = divide(bounds[rotateIndex], GRID_SIZE);
-                // rotate pins
-                for (let [pinName, pinCoords] of Object.entries(rawPins)) {
-                    pinCoords = divide(pinCoords, GRID_SIZE);
-                    pinCoords = rotate(pinCoords, rotateIndex);
-                    pins[rotateIndex][pinName] = pinCoords;
 
 
-                }
+                elems[rawLib.typeId] =
+                {
+                    typeId: rawLib.typeId,
+                    abbr: rawLib.abbr,
+                    descr: rawLib.descr,
+                    name: rawLib.name,
+                    turtle: turtle,
+                    pins: pins,
+                    bounds: bounds,
+                    packages: {}
+                };
 
+
+                cnt++;
+            } catch (e) {
+                throw new Error(`${e.message} (typeId: ${rawLib.typeId})`);
             }
-
-
-            elems[rawLib.typeId] =
-            {
-                typeId: rawLib.typeId,
-                abbr: rawLib.abbr,
-                descr: rawLib.descr,
-                name: rawLib.name,
-                turtle: turtle,
-                pins: pins,
-                bounds: bounds,
-                packages: {}
-            };
-
-
-            cnt++;
         });
         // console.log(prettify(elems, 3));
         errors.push({ code: ErrorCodes.INFO, message: `Loaded ${cnt} elements into library` });
@@ -405,35 +359,14 @@ export const LoadElems = async (elems, errors) => {
 
     }
 
+    try {
+        await loadLib(elems, errors);
+        await loadPackage(elems, errors);
+    } catch (e) {
 
-    await loadLib(elems, errors);
-    await loadPackage(elems, errors);
+        console.error(`error while LoadElems: ${e.message}`);
+        console.error(`stack: ${e.stack}`);
+    }
 
-
-
-}
-
-// not used -----------------------------------------------
-/*export const expandBounds = (current, add) => {
-
-    return [
-        Math.min(current[0], add[0]), Math.min(current[1], add[1]),
-        Math.max(current[2], add[2]), Math.max(current[3], add[3])
-    ]
 
 }
-    
-export const transformRect = (rect, delta) => {    return [rect[0] + delta[0], rect[1] + delta[1], rect[2] + delta[0], rect[3] + delta[1]]}
-*/
-/*
-export const expandBoundsByPoint = (current, point) => {
-
-    return [
-        Math.min(current[0], point[0]), Math.min(current[1], point[1]),
-        Math.max(current[2], point[0]), Math.max(current[3], point[1])
-    ]
-
-}
-
-export const rectFromPoint = (point) => [point[0], point[1], point[0], point[1]]
-*/

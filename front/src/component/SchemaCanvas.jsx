@@ -9,8 +9,8 @@ import {
     clamp,
     add,
     addPoint, ptInRect, roundPoint, isPointEqual,
-    expandRect,
-    union,
+
+    union, expand,
     getRectHeight, getRectWidth, adjustCtx, adjustPoint
 } from '../helpers/geo.js';
 import { prettify, prettify_v2, pprint } from '../helpers/debug.js';
@@ -225,7 +225,7 @@ const SchemaCanvas = forwardRef(({
 
     const findPinAt = useCallback((checkPoint) => {
         let checkRect = [...checkPoint, ...checkPoint] // rect from point
-        checkRect = expandRect(checkRect, SELECT_TOLERANCE);
+        checkRect = expand(checkRect, SELECT_TOLERANCE);
 
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];

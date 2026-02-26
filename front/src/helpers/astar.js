@@ -1,6 +1,6 @@
 import { prettify } from './debug.js';
 import {
-    expandRect, snapRect, addPoint,  ptInRect, pointsDistance, subPoint, isPointEqual,
+     snapRect, addPoint,  ptInRect, pointsDistance,  isPointEqual,expand,
     add
 } from './geo.js';
 const GRID_EXPAND = 20; // in parrots
@@ -58,35 +58,7 @@ export const collapseRoute = (parrots) => {
     path.push(parrots[parrots.length - 1]);
     return path;
 };
-/*export const collapseRoute = (parrots) => {
-    // console.log(prettify(route, 0));
-    let path = [];
-    if (parrots.length > 1) {
 
-
-        // simplify path
-        let prevDirection;
-        path.push(parrots[0]);
-        for (let i = 1; i < parrots.length; i++) {
-
-            const dirCoords = subPoint(parrots[i], parrots[i - 1]);
-            const direction = DIRECTIONS.findIndex(t => t[0] === dirCoords[0] && t[1] === dirCoords[1]);
-
-            // console.log(`${gridIndexes[i - 1]} -> ${gridIndexes[i]}    C:${dirCoords} DI:${direction}`);
-
-            if (i > 1) {
-                if (prevDirection !== direction) {
-                    path.push(parrots[i - 1]);
-                    // console.log(`***point`)
-                }
-            }
-            prevDirection = direction;
-        }
-        path.push(parrots[parrots.length - 1]);
-
-    }
-    return path;
-}*/
 // create full path from key-pointed
 export const expandPath = (parrots) => {
     // console.log(prettify(path,0));
@@ -161,7 +133,7 @@ export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
     const r = {};
 
     // add margins to global bound
-    r.bounds = expandRect(parrotBounds, GRID_EXPAND, GRID_EXPAND);
+    r.bounds = expand(parrotBounds, GRID_EXPAND);
     r.x = r.bounds[0];
     r.y = r.bounds[1];
     r.w = r.bounds[2] - r.bounds[0] + 1;
