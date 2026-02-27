@@ -4,7 +4,7 @@ import { dpr } from '../helpers/draw.js';
 import { prettify } from '../helpers/debug.js';
 import { doRoute } from '../helpers/route.js';
 import { ErrorCodes } from '../helpers/utils.js';
-import { adjustCtx } from '../helpers/geo.js';
+import { adjustCtx, multiply } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
 
@@ -14,8 +14,8 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
     const [routeData, setRouteData] = useState(null);
 
     const drawRoute = useCallback(() => {
-        const zoom = 7;
-        const zoomRect = (rct, z) => { return rct.map(v => v * z) }
+        const zoom = 8;
+        //const zoomRect = (rct, z) => { return rct.map(v => v * z) }
         const adjustRect = (rct) => {
 
             const adj = [
@@ -49,16 +49,16 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
         // draw PCB bound
         ctx.lineWidth = 1;
         ctx.strokeStyle = '#00692555';
-        let binRect = [0, 0, rd.binW, rd.binH];
-        let pcbRect = zoomRect(binRect, zoom);
+        let binRect = [0, 0, ...rd.bin];
+        let pcbRect = multiply(binRect, zoom);
         pcbRect = adjustRect(pcbRect);
         ctx.strokeRect(...pcbRect);
 
 
         ctx.font = '24px "pcb"';
         ctx.fillStyle = 'black';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        //ctx.textAlign = 'center';        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
 
 
         // const pt = addPoint(pt, [7, -7]);
@@ -67,14 +67,28 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
 
         // elements
         ctx.strokeStyle = '#ff0000';
-        rd.rects.forEach(rect => {
-            const elemArray = rect.toArray();
-            const elemRect = zoomRect(elemArray, zoom);
-            const adj = adjustRect(elemRect);
-            ctx.strokeRect(...adj);
+        rd.elements.forEach(elem => {
 
-            ctx.fillText(rect.elementId, ...rectCenter(elemRect));
+            ctx.save()
+            try {
+                const elemPos = multiply(elem.pos, zoom);
+                ctx.beginPath();
+                ctx.arc(...elemPos, 2, 0, 2 * Math.PI);
+                ctx.fill();
 
+                 ctx.fillText(elem.text, ...elemPos);
+            }
+            finally {
+                ctx.restore();
+            }
+
+            /* const elemArray = rect.toArray();
+             const elemRect = zoomRect(elemArray, zoom);
+             const adj = adjustRect(elemRect);
+             ctx.strokeRect(...adj);
+ 
+             ctx.fillText(rect.elementId, ...rectCenter(elemRect));
+ */
 
         });
 
@@ -97,7 +111,7 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
                 } else {
                     onError?.([{
                         code: ErrorCodes.INFO,
-                        message: `PCB size: ${result.data.binW}*${result.data.binH}mm`
+                        message: `PCB size: ${result.data.bin[0]}*${result.data.bin[1]}mm`
                     }]);
                 }
 

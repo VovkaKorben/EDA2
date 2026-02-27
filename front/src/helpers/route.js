@@ -378,17 +378,16 @@ export const doRoute = async (data) => {
             pkgRect.elementId = elem.elementId;
 
             packagesRects.push(pkgRect);
-            console.log(pkgRect.w, pkgRect.h);
+            // console.log(pkgRect.w, pkgRect.h);
         }
 
         // pack rects on the PCB
         const packResult = packRects(packagesRects);
-        packResult.binW = Math.ceil(packResult.binW);
-        packResult.binH = Math.ceil(packResult.binH);
+
 
 
         // convert packed rects to draw-structure
-        const toDraw = {}
+        const elements = []
         for (const elem of Object.values(data.schemaElements.elements)) {
             const lib = data.libElements[elem.typeId]
             const elemId = elem.elementId;
@@ -405,23 +404,28 @@ export const doRoute = async (data) => {
             const textPos = rotate(pkg.textPos, packedRect.rotate)
             const text = `${lib.abbr}${elem.typeIndex}`
 
-            toDraw[elemId] = {
+            elements.push({
                 elementId: elemId,
                 packageId: packageId,
                 textPos: textPos,
                 text: text,
-                pos: [packedRect.l, packedRect.t]
-            }
+                pos: [packedRect.l, packedRect.t],
+                rotate: packedRect.rotate,
+                bounds: [...pkg.bounds]
+            });
             // rotate points
-            console.log(packedRect);
+            //  console.log(packedRect);
 
         }
 
-
+        const result = {
+            elements: elements,
+            bin: [Math.ceil(packResult.binW), Math.ceil(packResult.binH)]
+        }
 
 
         // console.log(prettify(packResult, 2));
-        return { data: toDraw }
+        return { data: result }
     } catch (err) {
         console.error(`[doRoute] ${err.message}`);
     }
