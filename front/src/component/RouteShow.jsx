@@ -4,17 +4,17 @@ import { dpr } from '../helpers/draw.js';
 import { prettify } from '../helpers/debug.js';
 import { doRoute } from '../helpers/route.js';
 import { ErrorCodes } from '../helpers/utils.js';
-import { adjustCtx, multiply } from '../helpers/geo.js';
+import { adjustCtx, multiply, rotate, normalize, adjustPoint, getRectWidth, getRectHeight, add } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
-
+const pixInMm = 3.78;
 const RouteShow = ({ libElements, schemaElements, onError }) => {
 
     const canvasRef = useRef(null);
     const [routeData, setRouteData] = useState(null);
 
     const drawRoute = useCallback(() => {
-        const zoom = 8;
+        const zoom = 10;
         //const zoomRect = (rct, z) => { return rct.map(v => v * z) }
         const adjustRect = (rct) => {
 
@@ -55,51 +55,73 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
         ctx.strokeRect(...pcbRect);
 
 
-        ctx.font = '24px "pcb"';
-        ctx.fillStyle = 'black';
-        //ctx.textAlign = 'center';        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-
-
-        // const pt = addPoint(pt, [7, -7]);
-
-
 
         // elements
         ctx.strokeStyle = '#ff0000';
+
         rd.elements.forEach(elem => {
+            let elemPos = multiply(elem.pos, zoom);
+            elemPos = adjustPoint(elemPos);
 
             ctx.save()
             try {
-                const elemPos = multiply(elem.pos, zoom);
+                ctx.translate(...elemPos);
                 ctx.beginPath();
-                ctx.arc(...elemPos, 2, 0, 2 * Math.PI);
+                ctx.arc(0, 0, 2, 0, 2 * Math.PI);
                 ctx.fill();
 
-                 ctx.fillText(elem.text, ...elemPos);
+                let rotatedBounds = rotate(elem.bounds, elem.rotate);
+                rotatedBounds = normalize(rotatedBounds)
+                let zeroRect = [0, 0, getRectWidth(rotatedBounds), getRectHeight(rotatedBounds)]
+                zeroRect = multiply(zeroRect, zoom);
+
+                ctx.strokeRect(...zeroRect);
+
+
+
             }
             finally {
                 ctx.restore();
             }
-
-            /* const elemArray = rect.toArray();
-             const elemRect = zoomRect(elemArray, zoom);
-             const adj = adjustRect(elemRect);
-             ctx.strokeRect(...adj);
- 
-             ctx.fillText(rect.elementId, ...rectCenter(elemRect));
- */
+            // for (let x = 0; x < 4; x++) { let nb = rotate(elem.bounds, x); nb = normalize(nb); console.log(nb); }
+            // const startPoint = rawParams.slice(p * 2, p * 2 + 2);
 
         });
 
 
+        const lineHeight = pixInMm * 3 * 1.5;
+        ctx.save()
+        try {
+            // ctx.scale(3.78, 3.78);
+            ctx.font = `${lineHeight}px "pcb"`;
+            ctx.fillStyle = 'black'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';        //ctx.textAlign = 'center';        ctx.textBaseline = 'middle';
+            rd.elements.forEach(elem => {
+                let elemPos = multiply(elem.pos, zoom);
+                elemPos = add(elemPos, [3, 3]);
+                ctx.fillText(elem.text, ...elemPos);
+                elemPos = add(elemPos, [0, lineHeight]);
+                ctx.fillText(elem.rotate, ...elemPos);
+
+                elemPos = add(elemPos, [0, lineHeight]);
+                ctx.fillText(elem.elementId, ...elemPos);
+
+            });
+        }
+        finally {
+            ctx.restore();
+        }
+
+
+
+
+
+
+
     }, [routeData]);
-    //  const drawRef = useRef(drawRoute);
 
     // initial 
     useEffect(() => {
         const runRouting = async () => {
-            // Сигнализируем о старте
             onError?.([{ code: ErrorCodes.INFO, message: 'Init trace' }]);
 
             try {

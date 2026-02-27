@@ -65,7 +65,7 @@ export const rotate = (figure, rotateIndex) => {
 
             case 2: // 180 deg
                 result[idx + 0] = -figure[idx + 0]
-                result[idx + 1] = figure[idx + 1]
+                result[idx + 1] = -figure[idx + 1]
                 break;
 
             case 3: // 270 deg
@@ -95,7 +95,17 @@ export const divide = (figure, value) => {
 
     return figure.map(d => d / value);
 }
+export const normalize = (rect) => {
+    let [x1, y1, x2, y2] = rect
+    if (x1 > x2) {
+        [x1, x2] = [x2, x1]
+    }
+    if (y1 > y2) {
+        [y1, y2] = [y2, y1]
+    }
+    return [x1, y1, x2, y2]
 
+}
 
 
 export const add = (figure, other) => {
@@ -103,6 +113,14 @@ export const add = (figure, other) => {
     const result = figure.map((v, i) => {
         const otherIndex = i % otherLength;
         return v + other[otherIndex];
+    });
+    return result;
+}
+export const sub = (figure, other) => {
+    const otherLength = other.length;
+    const result = figure.map((v, i) => {
+        const otherIndex = i % otherLength;
+        return v - other[otherIndex];
     });
     return result;
 }

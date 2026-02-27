@@ -5,7 +5,7 @@ import {
     union, snapRectFloat, rotate, expand,
     divide,
     snapRect,
-    roundPoint
+    roundPoint, normalize, sub
 } from './geo.js';
 import { Rect } from './rect.js';
 import { API_URL, ErrorCodes } from './utils.js';
@@ -388,6 +388,7 @@ export const doRoute = async (data) => {
 
         // convert packed rects to draw-structure
         const elements = []
+        const pins = []
         for (const elem of Object.values(data.schemaElements.elements)) {
             const lib = data.libElements[elem.typeId]
             const elemId = elem.elementId;
@@ -403,6 +404,29 @@ export const doRoute = async (data) => {
 
             const textPos = rotate(pkg.textPos, packedRect.rotate)
             const text = `${lib.abbr}${elem.typeIndex}`
+
+            // distance from pcb start to element
+            let pcbPosition = [packedRect.l, packedRect.t]
+
+
+            // element bounds
+            let rotatedBounds = [...pkg.bounds]
+            rotatedBounds = rotate(rotatedBounds, packedRect.rotate);
+            rotatedBounds = normalize(rotatedBounds)
+
+            // distance from 1st pin to elem start
+            const zeroDist = [...rotatedBounds.splice(0, 2)]
+
+            for (const [pinName, pinCoords] of Object.entries(pkg.pins)) {
+
+                let rotatedCoord = rotate(pinCoords, packedRect.rotate);
+                rotatedCoord = sub(rotatedCoord, zeroDist);
+
+                // distance in parrots from component left-top
+                const globalPinCoord rotatedCoord = divide(rotatedCoord, PCB_UNIT);
+
+                console.log(pinName, pinCoords, rotatedCoord);
+            }
 
             elements.push({
                 elementId: elemId,
