@@ -1,14 +1,15 @@
 import {
     getPrimitiveBounds, stringToCoords, parseTurtle, pinsToPoints,
-    getRectWidth, getRectHeight,
+
     floatEqual, leq, geq,
     union, snapRectFloat, rotate, expand,
     divide,
-    snapRect,
-    roundPoint, normalize, sub
+
+    roundPoint, normalize,
+    add, isPointEqual
 } from './geo.js';
 import { Rect } from './rect.js';
-import { API_URL, ErrorCodes } from './utils.js';
+import { API_URL, ErrorCodes, ObjectType } from './utils.js';
 import { prettify } from './debug.js';
 
 export const PCB_UNIT = 25.4 / 20; // inch/20 = 50mil
@@ -328,7 +329,7 @@ const convertPackages = (packages) => {
     return result;
 };
 
-const checkPins = ({ schemaElements: { elements }, libElements }, packagesData) => {
+const checkPins = (libElements, packagesData) => {
     for (const packageId in packagesData) {
         const pkg = packagesData[packageId]
         const packagePinsNames = Object.keys(pkg.pins).map(n => n.toUpperCase());
@@ -344,6 +345,97 @@ const checkPins = ({ schemaElements: { elements }, libElements }, packagesData) 
 
     }
     return [];
+}
+
+const calculateNetworks = (wires) => {
+
+    const getConnectedIds = (tconnPos, wiresSet) => {
+        const connected = new Set()
+        for (const wireId of wiresSet) {
+            const wire = wires[wireId]
+            if (wire.source.type === ObjectType.TCONN && isPointEqual(tconnPos, wire.source.pos)) {
+                connected.add(wireId)
+            }
+            if (wire.target.type === ObjectType.TCONN && isPointEqual(tconnPos, wire.target.pos)) {
+                connected.add(wireId)
+            }
+        }
+        return connected
+    }
+
+
+    const examineWire = (wireId, wiresSet) => {
+        const wire = wires[wireId]
+        const collect = []
+        for (const nodeName of ['source', 'target']) {
+
+            const wireEnd = wire[nodeName];
+
+            if (wireEnd.type === ObjectType.PIN) {
+                collect.push({
+                    elementId: wireEnd.elementId,
+                    pinIdx: wireEnd.pinIdx
+                })
+
+            } else if (wireEnd.type === ObjectType.TCONN) {
+                // get connected wires IDs
+                const connected = getConnectedIds(wireEnd.pos, wiresSet)
+                // remove from global wires
+                for (const wireId of connected) {
+                    wiresSet.delete(wireId)
+                }
+                //wireIds = wireIds.filter(wireId => !connected.includes(wireId));
+                // check each 
+                for (const wireId of connected) {
+                    const examineResult = examineWire(wireId, wiresSet)
+                    collect.push(...examineResult)
+                }
+            }
+        }
+
+
+
+        return collect
+    }
+
+
+    const nets = []
+    let wireSet = new Set(Object.keys(wires))
+
+    while (wireSet.size > 0) {
+        const [wireId] = wireSet
+        wireSet.delete(wireId)
+
+        //  console.log(prettify(wires[wireId], 0));
+        const netCollect = examineWire(wireId, wireSet);
+        nets.push(netCollect)
+    }
+    // console.log(prettify(nets, 1))
+    return nets;
+
+}
+
+
+const calcNetworkPins = (nets, pins) => {
+    const result = []
+    for (const net of nets) {
+        const collect = []
+        for (const pin of net) {
+
+            const elemPin = pins.find(p => p.elementId === pin.elementId && p.pinName === pin.pinIdx)
+            collect.push(elemPin.pinPos)
+           /* const newPin = {
+                ...pin,
+                pos: elemPin.pinPos
+
+            }
+            collect.push(newPin)*/
+        }
+
+        result.push(collect)
+
+    }
+    return result
 }
 
 export const doRoute = async (data) => {
@@ -363,7 +455,7 @@ export const doRoute = async (data) => {
         const packagesData = convertPackages(rawPackages);
 
         // check all pins are exist (lib <=> phys)
-        errors = checkPins(data, packagesData);
+        errors = checkPins(data.libElements, packagesData);
         if (errors.length > 0) {
             return { errors: errors };
         }
@@ -386,7 +478,7 @@ export const doRoute = async (data) => {
 
 
 
-        // convert packed rects to draw-structure
+        // convert packed rects to draw-ready structure
         const elements = []
         const pins = []
         for (const elem of Object.values(data.schemaElements.elements)) {
@@ -401,33 +493,44 @@ export const doRoute = async (data) => {
             const { packageId } = elem;
             const pkg = packagesData[packageId];
 
-
-            const textPos = rotate(pkg.textPos, packedRect.rotate)
-            const text = `${lib.abbr}${elem.typeIndex}`
-
             // distance from pcb start to element
-            let pcbPosition = [packedRect.l, packedRect.t]
-
+            let elemPos = [packedRect.l, packedRect.t]
+            elemPos = roundPoint(divide(elemPos, PCB_UNIT))
+            // console.log(`elemPos: ${elemPos}`)
 
             // element bounds
-            let rotatedBounds = [...pkg.bounds]
-            rotatedBounds = rotate(rotatedBounds, packedRect.rotate);
-            rotatedBounds = normalize(rotatedBounds)
+            let elemBounds = [...pkg.bounds]
+            elemBounds = rotate(elemBounds, packedRect.rotate)
+            elemBounds = normalize(elemBounds)
+            elemBounds = divide(elemBounds, PCB_UNIT)
 
             // distance from 1st pin to elem start
-            const zeroDist = [...rotatedBounds.splice(0, 2)]
+
+            let firstPinPos = [-elemBounds[0], -elemBounds[1]]
+
+            // console.log('firstPinPos: ', roundPoint(firstPinPos))
 
             for (const [pinName, pinCoords] of Object.entries(pkg.pins)) {
 
-                let rotatedCoord = rotate(pinCoords, packedRect.rotate);
-                rotatedCoord = sub(rotatedCoord, zeroDist);
+                let pinPos = rotate(pinCoords, packedRect.rotate)
+                pinPos = divide(pinPos, PCB_UNIT)
+                pinPos = add(pinPos, firstPinPos)
 
                 // distance in parrots from component left-top
-                const globalPinCoord rotatedCoord = divide(rotatedCoord, PCB_UNIT);
 
-                console.log(pinName, pinCoords, rotatedCoord);
+                pinPos = add(pinPos, elemPos)
+                //  console.log(pinName, pinCoords, pinPos);
+                const pin = {
+                    elementId: elemId,
+                    pinName: pinName,
+                    pinPos: pinPos
+
+                }
+                pins.push(pin);
             }
 
+            let textPos = rotate(pkg.textPos, packedRect.rotate)
+            const text = `${lib.abbr}${elem.typeIndex}`
             elements.push({
                 elementId: elemId,
                 packageId: packageId,
@@ -442,8 +545,17 @@ export const doRoute = async (data) => {
 
         }
 
+
+
+
+
+
+        const nets = calculateNetworks(data.schemaElements.wires);
+        const netsPos = calcNetworkPins(nets, pins);
+
         const result = {
             elements: elements,
+            pins: pins,
             bin: [Math.ceil(packResult.binW), Math.ceil(packResult.binH)]
         }
 
@@ -477,3 +589,6 @@ const data = {
 
 
 //doRoute(data);
+// const wrs = { "0": { "wireId": 0, "source": { "type": "PIN", "elementId": 1, "pinIdx": "E" }, "target": { "type": "TCONN", "pos": [93, 45] }, "path": [[93, 43], [93, 45]] }, "1": { "wireId": 1, "source": { "type": "PIN", "elementId": 4, "pinIdx": "E" }, "target": { "type": "TCONN", "pos": [99, 56] }, "path": [[99, 55], [99, 56]] }, "2": { "wireId": 2, "source": { "type": "PIN", "elementId": 3, "pinIdx": "E" }, "target": { "type": "TCONN", "pos": [88, 56] }, "path": [[83, 55], [83, 56], [88, 56]] }, "3": { "wireId": 3, "source": { "type": "PIN", "elementId": 1, "pinIdx": "B" }, "target": { "type": "TCONN", "pos": [88, 56] }, "path": [[89, 40], [88, 40], [88, 56]] }, "4": { "wireId": 4, "source": { "type": "PIN", "elementId": 3, "pinIdx": "B" }, "target": { "type": "TCONN", "pos": [78, 42] }, "path": [[79, 52], [78, 52], [78, 42]] }, "5": { "wireId": 5, "source": { "type": "PIN", "elementId": 4, "pinIdx": "B" }, "target": { "type": "TCONN", "pos": [93, 45] }, "path": [[95, 52], [93, 52], [93, 45]] }, "6": { "wireId": 6, "source": { "type": "PIN", "elementId": 4, "pinIdx": "C" }, "target": { "type": "TCONN", "pos": [93, 45] }, "path": [[99, 49], [99, 45], [93, 45]] }, "7": { "wireId": 7, "source": { "type": "PIN", "elementId": 1, "pinIdx": "C" }, "target": { "type": "TCONN", "pos": [78, 36] }, "path": [[93, 37], [93, 36], [78, 36]] }, "8": { "wireId": 8, "source": { "type": "PIN", "elementId": 0, "pinIdx": "C" }, "target": { "type": "TCONN", "pos": [78, 42] }, "path": [[73, 56], [73, 42], [78, 42]] }, "9": { "wireId": 9, "source": { "type": "TCONN", "pos": [78, 42] }, "target": { "type": "TCONN", "pos": [78, 36] }, "path": [[78, 42], [78, 36]] }, "10": { "wireId": 10, "source": { "type": "PIN", "elementId": 0, "pinIdx": "B" }, "target": { "type": "TCONN", "pos": [78, 36] }, "path": [[69, 59], [68, 59], [68, 36], [78, 36]] }, "11": { "wireId": 11, "source": { "type": "TCONN", "pos": [88, 56] }, "target": { "type": "TCONN", "pos": [99, 56] }, "path": [[88, 56], [99, 56]] }, "12": { "wireId": 12, "source": { "type": "PIN", "elementId": 0, "pinIdx": "E" }, "target": { "type": "TCONN", "pos": [99, 56] }, "path": [[73, 62], [73, 63], [99, 63], [99, 56]] } }
+
+// const n = calculateNetworks(wrs); console.log(n);

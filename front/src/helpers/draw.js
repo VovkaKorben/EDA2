@@ -161,7 +161,7 @@ export const drawName = (elem, ctx) => {
 
 
         // const pt = addPoint(pt, [7, -7]);
-        ctx.fillText(`${elem.abbr}${elem.typeIndex}`, 0, -40);
+        ctx.fillText(`${elem.abbr}${elem.typeIndex} (id: ${elem.elementId})`, 0, -40);
 
 
     }

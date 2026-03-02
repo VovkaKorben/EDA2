@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 
 import { ObjectType, DragModeType, DrawColor } from '../helpers/utils.js';
-import { drawElement, drawPins, drawName, drawWire, drawGridDebug, GRID_SIZE, dpr } from '../helpers/draw.js';
+import { drawElement, drawPins, drawName, drawWire, GRID_SIZE, dpr } from '../helpers/draw.js';
 // import { dpr } from '../helpers/dpr.js';
 import {
 
@@ -344,19 +344,18 @@ const SchemaCanvas = forwardRef(({
                 }
 
             });
-            console.log(`sameConn ${prettify(sameConn, 1)}`);
 
             // create new wire if in connection point was exact 2 wires
-            if (sameConn.length !== 2) return;
+            if (sameConn.length !== 2) return null;
 
 
             // calculate merged paths for both wires
             let path = [];
             sameConn.forEach(w => path.push(schemaRef.current.wires[w.wireId].path));
             path = mergePaths(path);
-            console.log(`mergePaths ${prettify(path, 1)}`);
+            // console.log(`mergePaths ${prettify(path, 1)}`);
             path = collapseRoute(path);
-            console.log(`collapseRoute ${prettify(path, 1)}`);
+            //console.log(`collapseRoute ${prettify(path, 1)}`);
 
             // clear previous wires
             sameConn.forEach(w => delete schemaRef.current.wires[w.wireId]);
@@ -376,8 +375,8 @@ const SchemaCanvas = forwardRef(({
 
         }
 
-        const wire = { ...schemaRef.current.wires[wireId] };
-        if (!wire) return;
+        const deletedWire = { ...schemaRef.current.wires[wireId] };
+        if (!deletedWire) return;
         // удаляем провод сразу, чтобы он не участовал
         delete schemaRef.current.wires[wireId];
 
@@ -388,8 +387,8 @@ const SchemaCanvas = forwardRef(({
         // 4. удаляем эти два провода, делаем один новый с краяим из п.3
         // для обоих концов: у нас ОБА не т-конн
         // 1. просто удаляем провод
-        checkConn(wire.source);
-        checkConn(wire.target);
+        checkConn(deletedWire.source);
+        checkConn(deletedWire.target);
 
         //if (wireId in schemaRef.current.wires)        onElemDeleted(selectedRef.current.elementId);
         selectedChanged({ type: ObjectType.NONE });
@@ -460,7 +459,7 @@ const SchemaCanvas = forwardRef(({
 
 
         } else { // PIN/TCONN to PIN/TCONN connection
-            wireId = getNewWireId();
+            wireId = getNewWireId()
             newWire = {
                 wireId: wireId,
                 source: source,
@@ -596,18 +595,35 @@ const SchemaCanvas = forwardRef(({
 
                 // Вывод ID провода для отладки
                 /*
-                const start = wire.path[0];
-                const end = wire.path[wire.path.length - 1];
-                const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
-                const [tx, ty] = parrotsToScreen(mid);
-    
-                ctx.save();
-                ctx.fillStyle = 'red';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
-                ctx.restore();
-            */
+                 const start = wire.path[0];
+                 const end = wire.path[wire.path.length - 1];
+                 const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+                 const [tx, ty] = parrotsToScreen(mid);
+     
+                 ctx.save();
+                 ctx.fillStyle = 'blue';
+                 ctx.font = '12px Arial';
+                 ctx.textAlign = 'center';
+                 ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
+                 ctx.restore();
+             */
+                // Проходим по всем точкам пути, кроме последней, чтобы сформировать сегменты
+                for (let i = 0; i < wire.path.length - 1; i++) {
+                    const p1 = wire.path[i];
+                    const p2 = wire.path[i + 1];
+
+                    // Вычисляем середину текущего сегмента
+                    const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+                    const [tx, ty] = parrotsToScreen(mid);
+
+                    ctx.save();
+                    ctx.fillStyle = 'blue';
+                    ctx.font = '10px Arial'; // Чуть уменьшила шрифт, чтобы не было каши
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
+                    ctx.restore();
+                }
 
 
 
@@ -682,6 +698,7 @@ const SchemaCanvas = forwardRef(({
                         zoom: view.zoom,
                         rotate: elem.rotate,
                         typeIndex: elem.typeIndex,
+                        elementId:elem.elementId,
                         color: drawColor,
                         width: 1
                     };
@@ -856,7 +873,7 @@ const SchemaCanvas = forwardRef(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged, onElemDeleted, selectedChanged, deleteWire]);
+    }, [onElemChanged, onElemDeleted, selectedChanged, deleteWire, zoomFit]);
 
 
     // WHEEL -------------------------------------------------------------------

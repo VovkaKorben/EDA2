@@ -279,3 +279,16 @@ export const multiplyRect = (rect, m) => {
             if (drawRoute) drawRoute();
         });
     }, [drawRoute]);
+
+
+      const getNewNetId = () => {
+
+        const existingIDs = new Set();
+        Object.values(schemaRef.current.wires).forEach(wire => existingIDs.add(wire.netId));
+
+        let newID = 0;
+        while (existingIDs.has(newID)) {
+            newID++;
+        };
+        return newID;
+    }

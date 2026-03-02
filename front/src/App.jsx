@@ -78,6 +78,8 @@ function App() {
 
             }
             case 3: refSchemaCanvas.current?.resetView(); break;
+
+            // LOG WIRESd
             case 400:
                 log_wires(schemaElements.wires);
                 break;
@@ -171,7 +173,7 @@ function App() {
 
 
             let s = `[${w.wireId}] `;
-            s = s + add_node(w.source) + ' -> ' + add_node(w.target);
+            s = s + add_node(w.source) + ' -> ' + add_node(w.target) //+ `  (netId: ${w.netId})`;
             console.log(s);
 
         })
@@ -179,9 +181,7 @@ function App() {
     };
 
 
-    useEffect(() => {
-        console.log(`libElements: ${Object.keys(libElements).length}`)
-    }, [libElements]);
+    //   useEffect(() => {        console.log(`libElements: ${Object.keys(libElements).length}`)    }, [libElements]);
 
 
     return (
