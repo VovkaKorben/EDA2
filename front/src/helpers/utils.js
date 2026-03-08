@@ -21,7 +21,15 @@ export const DrawColor = Object.freeze({
     HOVERED: '#40ff00d3',
     SELECTED: '#00ca00'
 });
-
+export const pcbColor = Object.freeze({
+    BG: '#fff',
+    PCB: '',
+    BOUND: '#750000',
+    COPPER: '#8d5e00',
+    DEBUG: '#00000015',
+    ELEM: '#f002',
+    BLUE: '#0000ff44'
+});
 
 export const ErrorCodes = Object.freeze({
     INFO: 0,

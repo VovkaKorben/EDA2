@@ -5,14 +5,17 @@ import {
     union, snapRectFloat, rotate, expand,
     divide,
 
-    roundPoint, normalize,
+    round, roundPoint, normalize,
     add, isPointEqual
 } from './geo.js';
 import { Rect } from './rect.js';
 import { API_URL, ErrorCodes, ObjectType } from './utils.js';
 import { prettify } from './debug.js';
+import { routePcb } from './pcbAStar.js';
 
-export const PCB_UNIT = 25.4 / 20; // inch/20 = 50mil
+// import { preparePcbAStar } from './pcbRoute.js';
+
+export const PCB_UNIT = 25.4 / 40; // inch/20 = 50mil
 const E = 0.001;
 const packRects = (inputRects) => {
     let binW = 0;
@@ -191,11 +194,11 @@ const packRects = (inputRects) => {
             }
 
             let bestFreeRect = fit.bestRect;
-            rect.rotate = fit.rotated;
+            rect.rotateIndex = fit.rotated;
 
             // 3. Размещаем прямоугольник с учетом возможного поворота
-            const finalW = rect.rotate ? rect.h : rect.w;
-            const finalH = rect.rotate ? rect.w : rect.h;
+            const finalW = rect.rotateIndex ? rect.h : rect.w;
+            const finalH = rect.rotateIndex ? rect.w : rect.h;
 
             rect.l = bestFreeRect.l //+ (bestFreeRect.w - finalW) / 2;
             rect.t = bestFreeRect.t //+ (bestFreeRect.h - finalH) / 2;
@@ -222,7 +225,6 @@ const packRects = (inputRects) => {
 const getUsedPackageIds = ({ schemaElements: { elements }, libElements }) => {
 
 
-    let errorsCount = 0;
 
     const packageIds = new Set();
     const errors = [];
@@ -236,11 +238,10 @@ const getUsedPackageIds = ({ schemaElements: { elements }, libElements }) => {
             packageIds.add(parseInt(packageId, 10));
         }
         else {
-            if (errorsCount < 3) {
+            if (errors.length < 3) {
                 const lib = libElements[elem.typeId];
                 const elemName = `${lib.abbr}${elem.typeIndex}`;
                 errors.push({ code: ErrorCodes.ERROR, message: `No package assigned for ${elemName}` });
-                errorsCount++;
             } else {
                 errors.push({ code: ErrorCodes.INFO, message: 'Showed names for first 3 elems' });
                 break;
@@ -423,45 +424,41 @@ const calcNetworkPins = (nets, pins) => {
         for (const pin of net) {
 
             const elemPin = pins.find(p => p.elementId === pin.elementId && p.pinName === pin.pinIdx)
-            collect.push(elemPin.pinPos)
-           /* const newPin = {
-                ...pin,
-                pos: elemPin.pinPos
-
-            }
-            collect.push(newPin)*/
+            let pos = elemPin.pinPos
+            pos = rotate(pos, elemPin.rotateIndex)
+            pos = add(pos,elemPin.anchor)
+            collect.push(pos)
         }
-
         result.push(collect)
-
     }
     return result
 }
 
 export const doRoute = async (data) => {
-
+    const resultErrors = []
+    let result = null
     try {
 
         // collect used packages IDs
         let { errors, packageIds } = getUsedPackageIds(data);
         if (errors.length > 0) {
-            //console.error(errors);
-            return { errors: errors };
+            resultErrors.push(...errors)
+            return { errors: resultErrors }
         }
         // read packages from DB
         const rawPackages = await fetchPackages(packageIds);
 
-        // convert coordinates
+        // parse raw package coordinates to usable numbers
         const packagesData = convertPackages(rawPackages);
 
         // check all pins are exist (lib <=> phys)
         errors = checkPins(data.libElements, packagesData);
         if (errors.length > 0) {
-            return { errors: errors };
+            resultErrors.push(...errors)
+            return { errors: resultErrors }
         }
 
-        // create Rect-array from used element-packages
-
+        // create Rect-array from used element-packages (pack rect algoritm uses Rect structures)
         const packagesRects = [];
         for (const elem of Object.values(data.schemaElements.elements)) {
             const packageId = elem.packageId;
@@ -470,7 +467,6 @@ export const doRoute = async (data) => {
             pkgRect.elementId = elem.elementId;
 
             packagesRects.push(pkgRect);
-            // console.log(pkgRect.w, pkgRect.h);
         }
 
         // pack rects on the PCB
@@ -486,84 +482,105 @@ export const doRoute = async (data) => {
             const elemId = elem.elementId;
 
             // find in packed 
-            const packedRect = packResult.rects.find(pr => pr.elementId === elemId)
+            let packedRect = packResult.rects.find(pr => pr.elementId === elemId)
             if (!packedRect) {
-                return [{ code: ErrorCodes.ERROR, message: `ElementID ${elemId} not found in packed rects` }]
+                resultErrors.push({ code: ErrorCodes.ERROR, message: `ElementID ${elemId} not found in packed rects` })
+                return { errors: resultErrors }
             }
-            const { packageId } = elem;
-            const pkg = packagesData[packageId];
+
+            // store element rotating
+            const rotateIndex = packedRect.rotateIndex
+
+            // get real element placing
+            packedRect = packedRect.toArray()
+            packedRect = round(divide(packedRect, PCB_UNIT))
+
+            // get physical package
+            const pkg = packagesData[elem.packageId]
 
             // distance from pcb start to element
-            let elemPos = [packedRect.l, packedRect.t]
-            elemPos = roundPoint(divide(elemPos, PCB_UNIT))
+            // let elemPos = [packedRect.l, packedRect.t]
+            // elemPos = roundPoint(divide(elemPos, PCB_UNIT))
             // console.log(`elemPos: ${elemPos}`)
 
             // element bounds
             let elemBounds = [...pkg.bounds]
-            elemBounds = rotate(elemBounds, packedRect.rotate)
-            elemBounds = normalize(elemBounds)
-            elemBounds = divide(elemBounds, PCB_UNIT)
+            elemBounds = round(divide(elemBounds, PCB_UNIT))
+            const rotatedBounds = rotate(elemBounds, rotateIndex)
 
-            // distance from 1st pin to elem start
 
-            let firstPinPos = [-elemBounds[0], -elemBounds[1]]
-
-            // console.log('firstPinPos: ', roundPoint(firstPinPos))
+            // first pin (anchor) position
+            let anchor = [packedRect[0] - rotatedBounds[0], packedRect[1] - rotatedBounds[1]]
 
             for (const [pinName, pinCoords] of Object.entries(pkg.pins)) {
 
-                let pinPos = rotate(pinCoords, packedRect.rotate)
-                pinPos = divide(pinPos, PCB_UNIT)
-                pinPos = add(pinPos, firstPinPos)
-
-                // distance in parrots from component left-top
-
-                pinPos = add(pinPos, elemPos)
-                //  console.log(pinName, pinCoords, pinPos);
+                let pinPos = divide(pinCoords, PCB_UNIT)
                 const pin = {
                     elementId: elemId,
                     pinName: pinName,
-                    pinPos: pinPos
-
+                    anchor: anchor,
+                    pinPos: pinPos,
+                    rotateIndex: rotateIndex
                 }
                 pins.push(pin);
             }
 
-            let textPos = rotate(pkg.textPos, packedRect.rotate)
+            const textPos = divide(pkg.textPos, PCB_UNIT)
+
             const text = `${lib.abbr}${elem.typeIndex}`
             elements.push({
                 elementId: elemId,
-                packageId: packageId,
+                packageId: pkg.packageId,
+                packageName: pkg.name,
                 textPos: textPos,
                 text: text,
-                pos: [packedRect.l, packedRect.t],
-                rotate: packedRect.rotate,
-                bounds: [...pkg.bounds]
+                anchor: anchor,
+                rotateIndex: rotateIndex,
+                bounds: elemBounds
             });
-            // rotate points
-            //  console.log(packedRect);
-
         }
 
+        // prepare pins coords for A*
+        let pcbSize = [packResult.binW, packResult.binH]
+        pcbSize = divide(pcbSize, PCB_UNIT)
+        pcbSize = roundPoint(pcbSize)
+        const pcbSizeNodes = add(pcbSize, [1, 1]) // convert size to nodes
 
 
+        const pinsInNetworks = calculateNetworks(data.schemaElements.wires)
+        const posInNetworks = calcNetworkPins(pinsInNetworks, pins)
 
+        const routeResult = routePcb(pcbSizeNodes, posInNetworks)
 
+        if (routeResult.errors.length > 0) {
+            resultErrors.push(...routeResult.errors)
+            // return { errors: errors }
+        }
 
-        const nets = calculateNetworks(data.schemaElements.wires);
-        const netsPos = calcNetworkPins(nets, pins);
+        // console.log(prettify(posInNetworks, 1))
+        // console.log(prettify(pcbSizeNodes, 0))
+        // preparePcbAStar(pcbSize, netPins)
 
-        const result = {
+        result = {
             elements: elements,
             pins: pins,
-            bin: [Math.ceil(packResult.binW), Math.ceil(packResult.binH)]
+            pcbSize: pcbSize,
+            nodesCount: pcbSizeNodes,
+            copper: routeResult.data
         }
 
 
         // console.log(prettify(packResult, 2));
-        return { data: result }
-    } catch (err) {
-        console.error(`[doRoute] ${err.message}`);
+
+    } catch (e) {
+        console.error(`[doRoute] ${e.message}`);
+        resultErrors.push({ code: ErrorCodes.ERROR, message: e.message })
+        // console.error(`[doRoute] ${err.message}`);
+    }
+    return {
+        errors: resultErrors,
+        data: result
+
     }
 }
 

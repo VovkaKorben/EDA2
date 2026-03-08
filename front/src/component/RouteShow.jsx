@@ -3,19 +3,118 @@ import React, { useRef, useState, useEffect, useCallback, } from 'react';
 import { dpr } from '../helpers/draw.js';
 import { prettify } from '../helpers/debug.js';
 import { doRoute, PCB_UNIT } from '../helpers/route.js';
-import { ErrorCodes } from '../helpers/utils.js';
-import { adjustCtx, multiply, rotate, normalize, adjustPoint, getRectWidth, getRectHeight, add } from '../helpers/geo.js';
+import { ErrorCodes, pcbColor } from '../helpers/utils.js';
+import {
+    clamp, adjustCtx, multiply, rotate, normalize, adjustPoint,
+    getRectWidth, getRectHeight, add, sub, expand,
+    divide
+} from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
-const pixInMm = 3.78;
+const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50];
+const defaultZoom = 10
+const pixInMm = 3.78
+const pcbMargin = 1
 const RouteShow = ({ libElements, schemaElements, onError }) => {
 
+    const [view, setView] = useState({
+        pos: [-2, -2],
+        zoomIndex: defaultZoom,
+        zoomValue: zoomLevels[defaultZoom]
+    })
     const canvasRef = useRef(null);
     const [routeData, setRouteData] = useState(null);
 
+    const [mouseDown, setMouseDown] = useState(false);
+    const [mousePos, setMousePos] = useState(null);
+
+    // WHEEL -------------------------------------------------------------------
+    const handleWheel = (e) => {
+        const canvasRect = e.currentTarget.getBoundingClientRect()
+        let mousePos = [e.clientX, e.clientY]
+        mousePos = add(mousePos, [-canvasRect.left, -canvasRect.top]);
+
+        const wheel_dir = Math.sign(e.deltaY);
+        setView(prev => {
+            const newZoomIndex = clamp(prev.zoomIndex + wheel_dir, 0, zoomLevels.length - 1);
+            if (newZoomIndex === prev.zoomIndex) return prev;
+
+            const newZoomValue = zoomLevels[newZoomIndex];
+            // Текущий и новый масштаб в пикселях на единицу координат
+            const oldScale = PCB_UNIT * prev.zoomValue;
+            const newScale = PCB_UNIT * newZoomValue;
+
+            // Находим смещение: (координата мыши / масштаб_до) - (координата мыши / масштаб_после)
+            const deltaX = (mousePos[0] / oldScale) - (mousePos[0] / newScale);
+            const deltaY = (mousePos[1] / oldScale) - (mousePos[1] / newScale);
+
+            return {
+                ...prev,
+                zoomIndex: newZoomIndex,
+                zoomValue: newZoomValue,
+                pos: [
+                    prev.pos[0] + deltaX,
+                    prev.pos[1] + deltaY
+                ]
+            };
+        });
+    };
+    const handleMouseDown = (e) => {
+        setMouseDown(true)
+        setMousePos([e.clientX, e.clientY]);
+    }
+    const handleMouseMove = (e) => {
+        if (!mouseDown) return
+
+        const newMousePos = [e.clientX, e.clientY]
+        let pixelDelta = sub(mousePos, newMousePos)
+
+        setView(prev => {
+            const zoom = PCB_UNIT * view.zoomValue
+            const worldDelta = divide(pixelDelta, zoom);
+
+
+            return {
+                ...prev,
+                pos: add(prev.pos, worldDelta)
+            }
+        })
+        setMousePos(newMousePos)
+    }
+    const handleMouseUp = (e) => {
+        setMouseDown(false)
+    }
+
+
+
     const drawRoute = useCallback(() => {
         try {
-            const zoom = 18;
+
+
+            const drawCross = ({ pos, size, color, width }) => {
+                ctx.save()
+                try {
+                    ctx.beginPath()
+                    ctx.lineWidth = width
+                    ctx.strokeStyle = color
+                    const sz2 = Math.round(size / 2)
+
+                    //   pos = adjustPoint(pos)
+                    ctx.translate(...pos)
+                    ctx.moveTo(-sz2, 0)
+                    ctx.lineTo(sz2, 0)
+                    ctx.moveTo(0, -sz2)
+                    ctx.lineTo(0, sz2)
+                    ctx.stroke()
+                }
+                finally {
+                    ctx.restore()
+                }
+
+
+            }
+
+            // const zoomValue = 15;
 
             //const zoomRect = (rct, z) => { return rct.map(v => v * z) }
             const adjustRect = (rct) => {
@@ -37,28 +136,26 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
                    */
 
             const drawDebugGrid = () => {//
-                ctx.strokeStyle = '#00000035'
-                const bw = rd.bin[0] / PCB_UNIT
-                const bh = rd.bin[1] / PCB_UNIT
+                ctx.strokeStyle = pcbColor.DEBUG
                 const sz = 5
 
 
                 ctx.save()
                 try {
                     ctx.beginPath()
-                    for (let y = 0; y < bh; y++)
-                        for (let x = 0; x < bw; x++) {
+                    for (let y = 0; y <= routeData.pcbSize[1]; y++)
+                        for (let x = 0; x <= routeData.pcbSize[0]; x++) {
 
-                            let startPt = multiply([x, y], PCB_UNIT)
-                            startPt = multiply(startPt, zoom)
-                            startPt = adjustPoint(startPt)
-                            let s = add(startPt, [-sz / 2, 0])
-                            let e = add(startPt, [sz / 2, 0])
+                            let pt = multiply([x, y], zoom)
+                            pt = add(pt, startPt)
+                            pt = adjustPoint(pt)
+                            let s = add(pt, [-sz / 2, 0])
+                            let e = add(pt, [sz / 2, 0])
                             ctx.moveTo(...s)
                             ctx.lineTo(...e)
 
-                             s = add(startPt, [0,-sz / 2])
-                             e = add(startPt, [0,sz / 2])
+                            s = add(pt, [0, -sz / 2])
+                            e = add(pt, [0, sz / 2])
                             ctx.moveTo(...s)
                             ctx.lineTo(...e)
 
@@ -74,36 +171,62 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
             const drawElements = () => {//
 
                 // elements
-                ctx.strokeStyle = '#ff0000';
+                ctx.strokeStyle = pcbColor.ELEM
 
-                rd.elements.forEach(elem => {
-                    let elemPos = multiply(elem.pos, zoom);
-                    elemPos = adjustPoint(elemPos);
 
+
+                routeData.elements.forEach(elem => {
+                    let anchor = rotate(elem.anchor, elem.rotateIndex)
+
+
+                    anchor = multiply(anchor, zoom)
+                    anchor = add(anchor, startPt)
+                    anchor = adjustPoint(anchor)
                     ctx.save()
                     try {
-                        ctx.translate(...elemPos);
-                        ctx.beginPath();
-                        ctx.arc(0, 0, 2, 0, 2 * Math.PI);
-                        ctx.fill();
+                        ctx.translate(...anchor)
+                        drawCross({ pos: [0, 0], size: 20, color: '#f00', width: 1 })
+                    } finally { ctx.restore() }
+                    /*let elemPos = multiply(elem.pos, zoom)
+                    elemPos = add(elemPos, startPt)
+                    elemPos = adjustPoint(elemPos)
+                    drawCross({ pos: elemPos, size: 20, color: '#f00', width: 2 })
+                    let b = elem.bounds
+                    b = multiply(b, zoom)
+*/
 
-                        let rotatedBounds = rotate(elem.bounds, elem.rotate);
-                        rotatedBounds = normalize(rotatedBounds)
-                        let zeroRect = [0, 0, getRectWidth(rotatedBounds), getRectHeight(rotatedBounds)]
-                        zeroRect = multiply(zeroRect, zoom);
-
-                        ctx.strokeRect(...zeroRect);
-
-
-
-                    }
-                    finally {
-                        ctx.restore();
-                    }
+                    // let elemPos = multiply(elem.pos, view.zoomValue);
+                    // elemPos = adjustPoint(elemPos);
+                    /*
+                                        ctx.save()
+                                        try {
+                                            ctx.translate(...elemPos);
+                                            ctx.beginPath();
+                                            ctx.arc(0, 0, 2, 0, 2 * Math.PI);
+                                            ctx.fill();
+                    
+                                            let rotatedBounds = rotate(elem.bounds, elem.rotateIndex);
+                                            // console.log(rotatedBounds)
+                                            rotatedBounds = normalize(rotatedBounds)
+                                            let zeroRect = [0, 0, getRectWidth(rotatedBounds), getRectHeight(rotatedBounds)]
+                                            zeroRect = multiply(zeroRect, zoom);
+                    
+                                            ctx.strokeRect(...zeroRect);
+                    
+                    
+                    
+                                        }
+                                        finally {
+                                            ctx.restore();
+                                        }
+                                            */
                     // for (let x = 0; x < 4; x++) { let nb = rotate(elem.bounds, x); nb = normalize(nb); console.log(nb); }
                     // const startPoint = rawParams.slice(p * 2, p * 2 + 2);
 
-                });
+
+                })
+
+
 
 
 
@@ -112,18 +235,31 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
                 const textHeight = pixInMm * 2 * 1.5;
                 ctx.save()
                 try {
+
                     // ctx.scale(3.78, 3.78);
                     ctx.font = `${textHeight}px "pcb"`;
-                    ctx.fillStyle = 'black'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';        //ctx.textAlign = 'center';        ctx.textBaseline = 'middle';
-                    rd.elements.forEach(elem => {
-                        let elemPos = multiply(elem.pos, zoom);
-                        elemPos = add(elemPos, [3, 3]);
-                        ctx.fillText(elem.text, ...elemPos);
-                        elemPos = add(elemPos, [0, textHeight]);
-                        ctx.fillText(elem.rotate, ...elemPos);
+                    ctx.fillStyle = 'black';
+                    ctx.textAlign = 'center'
+                    ctx.textBaseline = 'middle'
+                    routeData.elements.forEach(elem => {
+                        // console.log(elem.anchor)
+                        let textPos = rotate(elem.textPos, elem.rotateIndex)
+                        textPos = add(textPos, elem.anchor)
 
-                        elemPos = add(elemPos, [0, textHeight]);
-                        ctx.fillText(elem.elementId, ...elemPos);
+                        textPos = multiply(textPos, zoom)
+                        textPos = add(textPos, startPt)
+                        textPos = adjustPoint(textPos)
+                        // drawCross({ pos: textPos, size: 35, color: pcbColor.BLUE, width: 11 })
+                        ctx.fillText(elem.text, ...textPos);
+
+                        textPos = add(textPos, [0, textHeight])
+                        textPos = adjustPoint(textPos)
+                        ctx.fillText(elem.packageName, ...textPos);
+
+
+
+
+
 
                     });
                 }
@@ -134,53 +270,138 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
 
             }
             const drawPins = () => {
-                ctx.fillStyle = '#550000'
-                rd.pins.forEach(pin => {
-                    let pinPos = pin.pinPos
-                    pinPos = multiply(pinPos, PCB_UNIT)
+
+                routeData.pins.forEach(pin => {
+                    let { pinPos, anchor, rotateIndex } = pin
+
+                    // calculate pin position in parrots
+                    pinPos = rotate(pinPos, rotateIndex)
+                    pinPos = add(pinPos, anchor)
+
+                    // calculate parrots to screen
                     pinPos = multiply(pinPos, zoom)
+                    pinPos = add(pinPos, startPt)
+                    pinPos = adjustPoint(pinPos)
+
+                    // draw two circles
                     ctx.beginPath()
-                    ctx.arc(...pinPos, 3, 0, 2 * Math.PI)
+                    ctx.fillStyle = pcbColor.COPPER
+                    ctx.arc(...pinPos, zoom / 3, 0, 2 * Math.PI)
+                    ctx.fill()
+                    ctx.beginPath()
+                    ctx.fillStyle = pcbColor.BG
+                    ctx.arc(...pinPos, zoom / 9, 0, 2 * Math.PI)
                     ctx.fill()
                 })
+
+            }
+            const drawCopper = () => {
+                ctx.strokeStyle = pcbColor.COPPER
+
+                ctx.save()
+                try {
+                    ctx.beginPath()
+                    ctx.lineWidth = zoom / 3;
+                    // each network
+                    Object.values(routeData.copper).forEach(net => {
+
+                        // each segment
+                        net.forEach(segment => {
+
+                            // each point in segment
+                            segment.forEach((pt, ptIndex) => {
+                                let drawPt = multiply(pt, zoom)
+                                drawPt = add(drawPt, startPt)
+                                drawPt = adjustPoint(drawPt)
+                                if (ptIndex === 0) {
+                                    ctx.moveTo(...drawPt)
+                                }
+                                else {
+                                    ctx.lineTo(...drawPt)
+                                }
+                            })
+                        })
+                    })
+                    ctx.stroke()
+                    /*  for (let y = 0; y <= rd.pcbSize[1]; y++)
+                          for (let x = 0; x <= rd.pcbSize[0]; x++) {
+                 
+                              let startPt = multiply([x, y], PCB_UNIT)
+                              startPt = multiply(startPt, zoomValue)
+                              startPt = adjustPoint(startPt)
+                              let s = add(startPt, [-sz / 2, 0])
+                              let e = add(startPt, [sz / 2, 0])
+                              ctx.moveTo(...s)
+                              ctx.lineTo(...e)
+                 
+                              s = add(startPt, [0, -sz / 2])
+                              e = add(startPt, [0, sz / 2])
+                              ctx.moveTo(...s)
+                              ctx.lineTo(...e)
+                 
+                 
+                          }
+                     
+                */
+                } finally {
+                    ctx.restore()
+
+                }
 
             }
 
 
 
-
-
+            // prepare and clear canvas
             const canvas = canvasRef.current;
             if (!canvas || !routeData) return;
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
+            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = pcbColor.BG
+            ctx.rect(0, 0, canvas.width, canvas.height)
+            ctx.fill()
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            // shortcut
-            const rd = routeData.data;
+
+
+
+            // shortcuts
+            // const rd = routeData.data;
+            const zoom = PCB_UNIT * view.zoomValue
+            let startPt = multiply(view.pos, -1)
+            startPt = add(startPt, pcbMargin)
+            startPt = multiply(startPt, zoom)
+
 
             // draw PCB bound
+            let marginedSize = add(routeData.pcbSize, pcbMargin * 2)
+            const pcbRect = [0, 0, ...marginedSize]
+            let pcbBoundRect = sub(pcbRect, view.pos)
+            pcbBoundRect = multiply(pcbBoundRect, zoom)
+            pcbBoundRect = adjustRect(pcbBoundRect);
             ctx.lineWidth = 1;
-            ctx.strokeStyle = '#00692555';
-            let binRect = [0, 0, ...rd.bin];
-            let pcbRect = multiply(binRect, zoom);
-            pcbRect = adjustRect(pcbRect);
-            ctx.strokeRect(...pcbRect);
+            ctx.strokeStyle = pcbColor.BOUND
+            ctx.strokeRect(...pcbBoundRect);
+
 
             drawDebugGrid()
-            drawElements()
+
+            drawCopper()
             drawPins()
             drawText()
+            drawElements()
+            //                            
 
 
 
         } catch (e) {
             console.error(e.message);
+            console.error(e.stack);
         }
 
 
-    }, [routeData]);
+    }, [routeData, view]);
 
     // initial 
     useEffect(() => {
@@ -189,51 +410,53 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
 
             try {
                 const result = await doRoute({ libElements, schemaElements });
-                setRouteData(result);
+                // console.log(prettify(result, 2))
+                setRouteData(result.data);
                 // check calculation
-                if (result.errors?.length > 0) {
-                    onError?.(result.errors);
-                } else {
-                    onError?.([{
-                        code: ErrorCodes.INFO,
-                        message: `PCB size: ${result.data.bin[0]}*${result.data.bin[1]}mm`
-                    }]);
-                }
+                onError?.(result.errors);
+
+                /* if (result.errors?.length > 0) {
+                     onError?.(result.errors);
+                 } else {
+                     onError?.([{
+                         code: ErrorCodes.INFO,
+                         message: `PCB size: ${result.data.pcbSize[0]}*${result.data.pcbSize[1]} pcb_units`
+                     }]);
+                 }*/
 
             } catch (e) {
-                onError?.([{ code: ErrorCodes.ERROR, message: `Route critical error: ${e.message}` }]);
+                onError?.([
+                    { code: ErrorCodes.ERROR, message: `Route critical error: ${e.message}` },
+                    { code: ErrorCodes.ERROR, message: `Stack: ${e.stack}` },
+                ]);
             }
         };
 
         if (Object.keys(libElements).length > 0) runRouting();
     }, [libElements, schemaElements, onError]);
 
-
-
-
     useEffect(() => {
-        const frameId = requestAnimationFrame(() => { drawRoute(); });
-        return () => cancelAnimationFrame(frameId);
-    }, [drawRoute]);
-
-    // update canvas size
-    useEffect(() => {
-
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const handleUpdate = () => {
+        // Функция синхронного обновления размера и отрисовки
+        const update = () => {
             const { clientWidth, clientHeight } = canvas;
+            // Устанавливаем физический размер буфера
             canvas.width = clientWidth * dpr;
             canvas.height = clientHeight * dpr;
+            // Рисуем немедленно
             drawRoute();
         };
-        const resizeObserver = new ResizeObserver(handleUpdate);
-        resizeObserver.observe(canvas);
 
-        document.fonts.ready.then(handleUpdate);
+        // Следим за изменением размера окна/контейнера
+        const ro = new ResizeObserver(update);
+        ro.observe(canvas);
 
-        return () => resizeObserver.disconnect();
+        // Рисуем сразу при монтировании или изменении view/routeData
+        update();
+
+        return () => ro.disconnect();
     }, [drawRoute]);
 
     return (
@@ -241,6 +464,10 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
 
             <canvas
                 ref={canvasRef}
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
                 style={{
                     width: '100%',
                     height: '100%',

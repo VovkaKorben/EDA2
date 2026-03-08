@@ -14,7 +14,7 @@ const ElementEntry = ({ elem, selected, hovered, selectedChange, hoveredChange, 
         packageChange(
             {
                 elementId: elem.elementId,
-                packageId: clear ? null : packageRef.current.value
+                packageId: clear ? null : +(packageRef.current.value)
             });
     }
 
@@ -141,7 +141,7 @@ const ElementsList = ({ schemaElements, libElements, selected, hovered, selected
 
         </React.Fragment>
 
-    );
-};
+    )
+}
 export default ElementsList;
 

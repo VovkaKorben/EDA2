@@ -60,7 +60,7 @@ const SchemaCanvas = forwardRef(({
 
     useEffect(() => { viewRef.current = view; }, [view]);
 
-    const zoomFit = () => {
+    const zoomFit = useCallback(() => {
         let bounds = [Infinity, Infinity, -Infinity, -Infinity]
 
         // elements
@@ -68,10 +68,10 @@ const SchemaCanvas = forwardRef(({
             const lib = libElements[elem.typeId];
             if (lib) {
                 // element itself
-                let elemBounds = [...lib.bounds[elem.rotate]];
+                let elemBounds = [...lib.bounds[elem.rotateIndex]];
 
                 // pins
-                Object.values(lib.pins[elem.rotate]).forEach(pin => {
+                Object.values(lib.pins[elem.rotateIndex]).forEach(pin => {
                     elemBounds = union(elemBounds, pin)
                 });
 
@@ -115,7 +115,7 @@ const SchemaCanvas = forwardRef(({
         };
         setView(newView);
 
-    }
+    }, [libElements])
 
 
 
@@ -217,7 +217,7 @@ const SchemaCanvas = forwardRef(({
         const lib = libElements[elem.typeId];
         if (!lib) return null;
 
-        let pinCoords = lib.pins[elem.rotate][obj.pinIdx];
+        let pinCoords = lib.pins[elem.rotateIndex][obj.pinIdx];
         pinCoords = addPoint(elem.pos, pinCoords);
         return pinCoords;
 
@@ -230,7 +230,7 @@ const SchemaCanvas = forwardRef(({
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             if (libElement) {
-                for (let [pinName, pinCoords] of Object.entries(libElement.pins[elem.rotate])) {
+                for (let [pinName, pinCoords] of Object.entries(libElement.pins[elem.rotateIndex])) {
                     let coords = [...pinCoords];
                     coords = add(coords, elem.pos);
 
@@ -250,9 +250,9 @@ const SchemaCanvas = forwardRef(({
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
             if (libElement) {
-                let elemRect = [...libElement.bounds[elem.rotate]];
+                let elemRect = [...libElement.bounds[elem.rotateIndex]];
                 elemRect = add(elemRect, elem.pos);
-                // const elemRect = transformRect(libElement.bounds[elem.rotate], elem.pos);
+                // const elemRect = transformRect(libElement.bounds[elem.rotateIndex], elem.pos);
                 if (ptInRect(elemRect, checkPoint)) {
                     return { elementId: elem.elementId };
                 }
@@ -486,7 +486,7 @@ const SchemaCanvas = forwardRef(({
 
         const pinToCoords = (pin) => {
             const elem = schemaElements.elements[pin.elementId];
-            const pinCoords = libElements[elem.typeId].pins[elem.rotate][pin.pinIdx];
+            const pinCoords = libElements[elem.typeId].pins[elem.rotateIndex][pin.pinIdx];
             const pt = addPoint(elem.pos, pinCoords);
             return pt;
         };
@@ -677,7 +677,7 @@ const SchemaCanvas = forwardRef(({
                     ...lib,
                     pos: parrotsToScreen(elem.pos),
                     zoom: view.zoom,
-                    rotate: elem.rotate,
+                    rotateIndex: elem.rotateIndex,
                     typeIndex: elem.typeIndex,
                     color: DrawColor.HOVERED,
                     width: 3
@@ -696,9 +696,9 @@ const SchemaCanvas = forwardRef(({
                         ...libElement,
                         pos: drawPos,
                         zoom: view.zoom,
-                        rotate: elem.rotate,
+                        rotateIndex: elem.rotateIndex,
                         typeIndex: elem.typeIndex,
-                        elementId:elem.elementId,
+                        elementId: elem.elementId,
                         color: drawColor,
                         width: 1
                     };
@@ -823,8 +823,8 @@ const SchemaCanvas = forwardRef(({
             if (selected.type !== ObjectType.ELEMENT) return;
             const elements = schemaRef.current.elements;
             const elem = elements[selected.elementId];
-            const newRotate = reset ? 0 : (elem.rotate + 1) % 4;
-            const updatedElem = { ...elem, rotate: newRotate };
+            const newRotate = reset ? 0 : (elem.rotateIndex + 1) % 4;
+            const updatedElem = { ...elem, rotateIndex: newRotate };
             onElemChanged(updatedElem);
         };
 
@@ -937,7 +937,7 @@ const SchemaCanvas = forwardRef(({
             elementId: getNewElementId(),
             typeId: data.typeId,
             pos: insertPos,
-            rotate: 0,
+            rotateIndex: 0,
             typeIndex: newTypeIndex,
             packageId: null
         };

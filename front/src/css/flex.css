@@ -1,16 +1,33 @@
-.frcc
-{
+.frcc {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: nowrap;
 	justify-content: center;
 	align-items: center;
 	align-content: stretch;
-    
+
 }
 
-.frsc
-{
+.frsc {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	justify-content: space-between;
+	align-items: center;
+	align-content: stretch;
+}
+
+.frlc {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	justify-content: flex-start;
+	align-items: center;
+	align-content: stretch;
+
+}
+
+.frbc {
 	display: flex;
 	flex-direction: row;
 	flex-wrap: nowrap;

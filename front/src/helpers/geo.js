@@ -109,20 +109,34 @@ export const normalize = (rect) => {
 
 
 export const add = (figure, other) => {
+
+    const ia = Array.isArray(other)
+    const otherLength = other.length;
+    return figure.map((v, i) => v + (ia ? other[i % otherLength] : other))
+
+
+}
+
+export const add2 = (figure, other) => {
     const otherLength = other.length;
     const result = figure.map((v, i) => {
         const otherIndex = i % otherLength;
         return v + other[otherIndex];
     });
     return result;
+
 }
 export const sub = (figure, other) => {
+    const ia = Array.isArray(other)
     const otherLength = other.length;
+    return figure.map((v, i) => v - (ia ? other[i % otherLength] : other))
+
+    /*const otherLength = other.length;
     const result = figure.map((v, i) => {
         const otherIndex = i % otherLength;
         return v - other[otherIndex];
     });
-    return result;
+    return result;*/
 }
 export const expand = (rect, x, y = x) => {
     return [rect[0] - x, rect[1] - y, rect[2] + x, rect[3] + y]
@@ -166,6 +180,12 @@ export const pointsDistance = (pt1, pt2) => {
     )
 
 }
+
+export const pointsDistanceSimple = (pt1, pt2) => {
+    return Math.pow(pt1[0] - pt2[0], 2) + Math.pow(pt1[1] - pt2[1], 2)
+
+
+}
 export const ptInRect = (rect, point) => {
     return point[0] >= rect[0] &&
         point[0] <= rect[2] &&
@@ -177,7 +197,8 @@ export const ptInRect = (rect, point) => {
 export const floatEqual = (f1, f2, e = Number.EPSILON) => { return Math.abs(f1 - f2) < e; }
 export const leq = (a, b, e = Number.EPSILON) => { return (a < b) || (Math.abs(a - b) < e); }
 export const geq = (a, b, e = Number.EPSILON) => { return (a > b) || (Math.abs(a - b) < e); }
-export const roundPoint = (pt) => [Math.round(pt[0]), Math.round(pt[1])];
+export const roundPoint = (pt) => [Math.round(pt[0]), Math.round(pt[1])]
+export const round = (figure) => figure.map(v => Math.round(v))
 export const addPoint = (point, delta) => {
     return [point[0] + delta[0], point[1] + delta[1]]
 }

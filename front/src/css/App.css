@@ -25,12 +25,13 @@ select {
 
     display: grid;
     grid-template-columns: 1fr 200px 70px;
-    grid-template-rows: 54px 1fr 100px;
+    grid-template-rows: 54px 54px 1fr 100px;
 
     grid-auto-columns: 1fr;
     gap: 0px 0px;
     grid-auto-flow: row;
     grid-template-areas:
+        "main-bar main-bar main-bar"
         "control-bar control-bar control-bar"
         "schema elem-schema library"
         "schema error-list error-list";
@@ -38,11 +39,24 @@ select {
     width: 100vw;
 }
 
+.main-bar {
+    grid-area: main-bar;
+    /* border: 1px solid black; */
+
+    padding: 0px 20px 0px 10px;
+    gap: 10px;
+    font-size: large;
+    font-weight: bold;
+    /* margin: 0px 5px 5px 5px; */
+    /* background-color: pink; */
+}
+
 .app-container.route-mode {
     /* Меняем сетку на 2 колонки и 2 строки */
     grid-template-columns: 1fr 270px;
-    grid-template-rows: 54px 1fr;
+    grid-template-rows: 54px 54px 1fr;
     grid-template-areas:
+        "main-bar main-bar"
         "control-bar control-bar"
         "schema error-list";
 }
@@ -62,21 +76,20 @@ select {
 .error-list {
     font-size: 14px;
     grid-area: error-list;
-  
+
     padding: 0px 0px 0px 5px;
     border: 1px dotted rgba(0, 0, 0, 0.328);
     margin: 0px 5px 5px 0px;
     scrollbar-gutter: stable;
     overflow-y: scroll;
 }
-.error-code-0
-{
-  color: #00003a;
+
+.error-code-0 {
+    color: #00003a;
 }
 
-.error-code-1
-{
-  color: #ff0000;
+.error-code-1 {
+    color: #ff0000;
 }
 
 
@@ -141,4 +154,15 @@ select {
     left: 50px;
     font-size: 16px;
     white-space: pre-wrap;
+}
+
+
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+a:hover {
+    color: red;
 }

@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import Controls from './component/Controls';
 import SchemaCanvas from './component/SchemaCanvas';
 import ElementsList from './component/ElementsList';
 import Library from './component/Library';
 import RouteShow from './component/RouteShow';
+import Auth from './component/Auth';
 
 
 import { ObjectType } from './helpers/utils.js';
@@ -13,7 +15,6 @@ import './css/flex.css'
 
 
 import { prettify } from './helpers/debug.js';
-// import { Rect, Point } from './helpers/rect.js';
 
 const defaultSchemaElements = {
     elements: {},
@@ -185,72 +186,94 @@ function App() {
 
 
     return (
-        // <div className='app-container'>
-        <div className={`app-container ${showRoute ? 'route-mode' : ''}`}>
-
-            {/* <div className="header"></div> */}
-            <div className="control-bar">  <Controls onAction={handleAction} /></div>
-            <div className="library">
-                <Library
-                    libs={libElements}
-                />
-            </div>
-            <div className="elem-schema">
-                <ElementsList
-                    schemaElements={schemaElements.elements}
-                    libElements={libElements}
-                    hovered={hovered}
-                    selected={selected}
+        <BrowserRouter>
+            <Routes>
 
 
-                    hoveredChange={(obj) => setHovered(obj)}
-                    selectedChange={(obj) => setSelected(obj)}
-                    packageChange={data => setPackage(data)}
-                />
-            </div>
-            <div className="schema">
+                <Route path="/" element={
+                    <div className={`app-container ${showRoute ? 'route-mode' : ''}`}>
 
-                {showRoute ?
-                    <RouteShow
-                        onError={handleErrors}
-                        schemaElements={schemaElements}
-                        libElements={libElements}
-                    />
+                        <div className="main-bar frbc">
+                            <div className="frcc" >
+                                <img src='./chip.svg' />
+                                <span>Simple EDA</span>
+                            </div  >
+                            <div className="frcc" >filename                </div >
+                            <div className="frcc" >
+                                <nav>
+                                    <Link to="/auth">login</Link>
+                                </nav>
 
-
-                    :
-                    <SchemaCanvas
-                        ref={refSchemaCanvas}
-                        libElements={libElements}
-                        schemaElements={schemaElements}
-                        // onAddElement={handleAddElement}
-
-                        hovered={hovered}
-                        selected={selected}
-
-                        hoveredChanged={(obj) => setHovered(obj)}
-                        selectedChanged={(obj) => setSelected(obj)}
-                        onElemChanged={onElemChanged}
-                        onElemDeleted={onElemDeleted}
-                        onWiresChanged={onWiresChanged}
-                    />
+                            </div >
+                        </div>
 
 
-                }
-            </div>
+                        <div className="control-bar">  <Controls onAction={handleAction} /></div>
+                        <div className="library">
+                            <Library
+                                libs={libElements}
+                            />
+                        </div>
+                        <div className="elem-schema">
+                            <ElementsList
+                                schemaElements={schemaElements.elements}
+                                libElements={libElements}
+                                hovered={hovered}
+                                selected={selected}
 
-            <div className="error-list">
-                {
-                    errorList.map((e, i) => {
 
-                        return <div className={`error-code-${e.code}`} key={i}>{e.message}</div>
-                    })
-                }
+                                hoveredChange={(obj) => setHovered(obj)}
+                                selectedChange={(obj) => setSelected(obj)}
+                                packageChange={data => setPackage(data)}
+                            />
+                        </div>
+                        <div className="schema">
 
-            </div>
+                            {showRoute ?
+                                <RouteShow
+                                    onError={handleErrors}
+                                    schemaElements={schemaElements}
+                                    libElements={libElements}
+                                />
 
 
-        </div>
+                                :
+                                <SchemaCanvas
+                                    ref={refSchemaCanvas}
+                                    libElements={libElements}
+                                    schemaElements={schemaElements}
+                                    // onAddElement={handleAddElement}
+
+                                    hovered={hovered}
+                                    selected={selected}
+
+                                    hoveredChanged={(obj) => setHovered(obj)}
+                                    selectedChanged={(obj) => setSelected(obj)}
+                                    onElemChanged={onElemChanged}
+                                    onElemDeleted={onElemDeleted}
+                                    onWiresChanged={onWiresChanged}
+                                />
+
+
+                            }
+                        </div>
+
+                        <div className="error-list">
+                            {
+                                errorList.map((e, i) => {
+
+                                    return <div className={`error-code-${e.code}`} key={i}>{e.message}</div>
+                                })
+                            }
+
+                        </div>
+
+
+                    </div>
+                } />
+                <Route path="/auth" element={<Auth />} />
+            </Routes>
+        </BrowserRouter>
     )
 }
 

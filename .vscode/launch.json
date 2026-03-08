@@ -49,6 +49,14 @@
         "**/node_modules/**",
         "<node_internals>/**"
       ]
+    },
+    {
+      "name": "pcb",
+      "type": "node",
+      "request": "launch",
+      "program": "pcbRoute.js",
+      "cwd": "${workspaceFolder}/front/src/helpers",
+      "console": "integratedTerminal",
     }
   ],
   "compounds": [

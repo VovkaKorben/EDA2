@@ -27,39 +27,6 @@ export const drawWire = (ctx, path, width, color, parrotsToScreen) => {
     ctx.stroke();
 }
 
-/**
- * Отрисовка сетки весов A* для отладки
- * @param {CanvasRenderingContext2D} ctx 
- * @param {Object} grid - объект из prepareAStarGrid
- * @param {Function} parrotsToScreen - твоя функция (px, py) => [sx, sy]
- */
-export const drawGridDebug = (ctx, grid, parrotsToScreen) => {
-    if (!grid || !grid.weights) return;
-
-    const rctSize = 5;
-    ctx.save();
-
-
-    // 2. Рисуем "веса" (препятствия)
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.25)'; // Красные квадраты для стен
-
-    for (let y = 0; y < grid.h; y++) {
-        for (let x = 0; x < grid.w; x++) {
-            const weight = grid.weights[y * grid.w + x];
-
-            if (weight > 0) {
-                // Переводим координаты попугая в экранные пиксели
-                const [sx, sy] = parrotsToScreen([grid.x + x, grid.y + y]);
-
-                // Размер одного "попугая" на экране — это и есть наш interval
-                // Для дебага можно просто взять небольшой фикс, чтобы не искать интервал
-                ctx.fillRect(sx - rctSize / 2, sy - rctSize / 2, rctSize, rctSize);
-            }
-        }
-    }
-
-    ctx.restore();
-};
 
 export const drawTurtle = (ctx, turtle, zoom) => {
 
