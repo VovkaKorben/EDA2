@@ -1,0 +1,18 @@
+.cb-cont  {
+    margin-bottom: 3px;
+}
+
+.cb-cont input[type="checkbox"] {
+    margin: 0;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.cb-cont label {
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    user-select: none;
+}

@@ -248,12 +248,16 @@ export const parseTurtle = (turtleString, divider = null) => {
                         params.points = [];
 
                         for (let p = 0; p < Math.floor(rawParams.length / 2); p++) {
-                            let pt = rawParams.slice(p * 2, p * 2 + 2);
-                            if (divider) { pt = divide(pt, divider) }
-                            params.points[p] = pt
-
-
+                            params.points[p] = rawParams.slice(p * 2, p * 2 + 2);
                         }
+
+
+                        if (divider) {
+
+                            params.points = params.points.map(pt => divide(pt, divider))
+                            // console.log(prettify( params.points,0) )
+                        }
+
                         // if params count is odd get last as style
                         params.style = rawParams.length % 2 ? rawParams.at(-1) : 0;
                         break;
@@ -265,6 +269,12 @@ export const parseTurtle = (turtleString, divider = null) => {
                         params.radius = rawParams[2];
                         params.start = (rawParams.length > 3 ? rawParams[3] : 0) * Math.PI / 180;
                         params.end = (rawParams.length > 4 ? rawParams[4] : 360) * Math.PI / 180;
+                        params.style = rawParams.length > 5 ? rawParams[5] : 0
+                        if (divider) {
+                             params.center = divide(params.center, divider)
+                             params.radius /= divider
+                        }
+
                         break;
                     default:
                         throw new Error(`Invalid primitive code <${code}>`);
@@ -301,6 +311,7 @@ export const LoadElems = async (elems, errors) => {
         let cnt = 0;
         result.data.forEach((rawLib) => {
             try { // explode primitives to objects
+
                 const turtle = parseTurtle(rawLib.turtle);
 
                 // explode pins to coords

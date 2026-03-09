@@ -28,11 +28,22 @@ export const pcbColor = Object.freeze({
     COPPER: '#8d5e00',
     DEBUG: '#00000035',
     ELEM: '#f00f',
-    BLUE: '#0000ff44'
+    BLUE: '#0000ff44',
+    DRILL: '#f50'
 });
 
 export const ErrorCodes = Object.freeze({
     INFO: 0,
     ERROR: 1,
+
+});
+
+
+export const LayerTypes = Object.freeze({
+    SILKSCREEN: 'Silkscreen',
+    DRILLING: 'Drilling spots',
+    COPPER: 'Copper',
+    BOUND: 'PCB bound',
+    GRID: 'Grid'
 
 });

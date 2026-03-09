@@ -6,7 +6,7 @@ import ElementsList from './component/ElementsList';
 import Library from './component/Library';
 import RouteShow from './component/RouteShow';
 import Auth from './component/Auth';
-
+import LayersList from './component/LayersList';
 
 import { ObjectType } from './helpers/utils.js';
 import { LoadElems } from './helpers/geo.js';
@@ -22,10 +22,21 @@ const defaultSchemaElements = {
 };
 
 function App() {
+
+    const [layers, setLayers] = useState(() => {
+        const data = JSON.parse(localStorage.getItem('layers')) || {}
+        return data;
+    });
+    useEffect(() => {
+        // console.log(layers)
+        localStorage.setItem('layers', JSON.stringify(layers))
+    }, [layers]);
+
+
     const [errorList, setErrorList] = useState([]);
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
-    const [showRoute, setShowRoute] = useState(false);
+    const [showRoute, setShowRoute] = useState(true);
     const refSchemaCanvas = useRef(null);
     const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
     const [libElements, setLibElements] = useState([]);
@@ -234,6 +245,7 @@ function App() {
                                     onError={handleErrors}
                                     schemaElements={schemaElements}
                                     libElements={libElements}
+                                    layers={layers}
                                 />
 
 
@@ -257,7 +269,13 @@ function App() {
 
                             }
                         </div>
+                        <div className="layers-list">
+                            <LayersList
+                                layers={layers}
+                                layersChanged={(v) => setLayers(v)}
+                            />
 
+                        </div>
                         <div className="error-list">
                             {
                                 errorList.map((e, i) => {

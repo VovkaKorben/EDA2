@@ -29,22 +29,22 @@ export const drawWire = (ctx, path, width, color, parrotsToScreen) => {
 
 
 export const drawTurtle = (ctx, turtle, zoom) => {
-
+    ctx.beginPath();
     switch (turtle.code) {
 
         case 'A': {// circle
-            ctx.beginPath();
-            let apt = multiply(turtle.center, zoom);
-            apt = roundPoint(apt);
+            // ctx.beginPath();
+            let center = multiply(turtle.center, zoom);
+            center = roundPoint(center);
 
-            ctx.arc(...apt, Math.round(turtle.radius * zoom), turtle.start, turtle.end);
-            ctx.stroke();
+
+            ctx.arc(...center, Math.round(turtle.radius * zoom), turtle.start, turtle.end);
             break;
         }
 
 
         case 'P': {// polyline
-            ctx.beginPath();
+
 
             turtle.points.forEach((pt, i) => {
                 let apt = multiply(pt, zoom);
@@ -57,16 +57,20 @@ export const drawTurtle = (ctx, turtle, zoom) => {
                 }
             });
 
-            switch (turtle.style) {
-                case 0: ctx.stroke(); break; // 0 polyline
-                case 1: ctx.closePath(); ctx.stroke(); break;// 1 polygon
-                case 2: ctx.closePath(); ctx.stroke(); ctx.fill(); break;  // 2 filled polygon
-            }
+
             break;
         }
 
 
 
+    }
+    switch (turtle.style) {
+
+        case 1: ctx.closePath(); ctx.stroke(); break;// 1 closed
+        case 2: ctx.closePath(); ctx.stroke(); ctx.fill(); break;  // 2 filled 
+        case 0:
+        default:
+            ctx.stroke(); break; // 0 simple primitive
     }
 }
 

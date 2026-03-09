@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect, useCallback, } from 'react';
 import { dpr, drawTurtle } from '../helpers/draw.js';
 import { prettify } from '../helpers/debug.js';
 import { doRoute, PCB_UNIT } from '../helpers/route.js';
-import { ErrorCodes, pcbColor } from '../helpers/utils.js';
+import { ErrorCodes, pcbColor, LayerTypes } from '../helpers/utils.js';
 import {
     clamp, adjustCtx, multiply, rotate, normalize, adjustPoint,
     getRectWidth, getRectHeight, add, sub, expand,
@@ -11,14 +11,14 @@ import {
 } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
-const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50,100,200];
-const defaultZoom = 12
+const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50, 75, 100, 200];
+const defaultZoom = 11
 const pixInMm = 3.78
 const pcbMargin = 1
-const RouteShow = ({ libElements, schemaElements, onError }) => {
+const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
     const [view, setView] = useState({
-        pos: [-0.2, -0.2],
+        pos: [-2, -2],
         zoomIndex: defaultZoom,
         zoomValue: zoomLevels[defaultZoom]
     })
@@ -86,7 +86,7 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
     }
 
 
-
+    // DRAW -------------------------------------------------------------------
     const drawRoute = useCallback(() => {
         try {
 
@@ -187,13 +187,13 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
                         ctx.translate(...anchor)
                         elem.turtle.forEach(prim => {
                             // console.log(prim)
-                            drawTurtle(ctx, prim,zoom)
+                            drawTurtle(ctx, prim, zoom)
                         })
                         // drawCross({ pos: [0, 0], size: 20, color: '#f00', width: 1 })
 
                         // 
                     } finally { ctx.restore() }
-              
+
 
                 })
 
@@ -240,6 +240,31 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
 
 
             }
+
+
+            const drawDrills = () => {
+                ctx.fillStyle = pcbColor.DRILL
+                routeData.pins.forEach(pin => {
+                    let { pinPos, anchor, rotateIndex } = pin
+
+                    // calculate pin position in parrots
+                    pinPos = rotate(pinPos, rotateIndex)
+                    pinPos = add(pinPos, anchor)
+
+                    // calculate parrots to screen
+                    pinPos = multiply(pinPos, zoom)
+                    pinPos = add(pinPos, startPt)
+                    pinPos = adjustPoint(pinPos)
+
+                    // draw two circles
+                    ctx.beginPath()
+
+                    ctx.arc(...pinPos, zoom / 9, 0, 2 * Math.PI)
+                    ctx.fill()
+                })
+
+            }
+
             const drawPins = () => {
 
                 routeData.pins.forEach(pin => {
@@ -259,10 +284,7 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
                     ctx.fillStyle = pcbColor.COPPER
                     ctx.arc(...pinPos, zoom / 3, 0, 2 * Math.PI)
                     ctx.fill()
-                    ctx.beginPath()
-                    ctx.fillStyle = pcbColor.BG
-                    ctx.arc(...pinPos, zoom / 9, 0, 2 * Math.PI)
-                    ctx.fill()
+
                 })
 
             }
@@ -355,14 +377,22 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
             ctx.strokeStyle = pcbColor.BOUND
             ctx.strokeRect(...pcbBoundRect);
 
+            const layerVisible = {}
 
-            drawDebugGrid()
+            Object.keys(LayerTypes).forEach(l => layerVisible[l] = Object.hasOwn(layers, l) ? layers[l] : true)
+            console.log(layerVisible)
+            if (layerVisible.GRID) drawDebugGrid()
 
-            drawCopper()
-            drawPins()
-            drawText()
-            drawElements()
-            //                            
+            if (layerVisible.COPPER) {
+                drawCopper()
+                drawPins()
+            }
+            if (layerVisible.DRILLING) drawDrills()
+            if (layerVisible.SILKSCREEN) {
+                drawText()
+                drawElements()
+            }
+
 
 
 
@@ -372,7 +402,7 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
         }
 
 
-    }, [routeData, view]);
+    }, [routeData, view, layers]);
 
     // initial 
     useEffect(() => {

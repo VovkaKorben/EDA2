@@ -6,7 +6,9 @@
 
 body,
 html,
-select {
+select,
+input,
+label {
 
     padding: 0px;
     margin: 0px;
@@ -22,6 +24,7 @@ select {
 
 .app-container {
     --selection-bg: rgba(136, 255, 0, 0.399);
+    --chbox-color: rgb(0, 106, 255);
 
     display: grid;
     grid-template-columns: 1fr 200px 70px;
@@ -54,16 +57,29 @@ select {
 .app-container.route-mode {
     /* Меняем сетку на 2 колонки и 2 строки */
     grid-template-columns: 1fr 270px;
-    grid-template-rows: 54px 54px 1fr;
+    grid-template-rows: 54px 54px 200px 1fr;
     grid-template-areas:
         "main-bar main-bar"
         "control-bar control-bar"
+        "schema layers-list"
         "schema error-list";
 }
 
 .app-container.route-mode .library,
 .app-container.route-mode .elem-schema {
     display: none;
+}
+
+.app-container:not(.route-mode) .layers-list {
+    display: none;
+}
+
+.layers-list {
+    grid-area: layers-list;
+    border: 1px solid black;
+    margin: 0px 5px 5px 0px;
+    padding: 5px;
+
 }
 
 .schema {

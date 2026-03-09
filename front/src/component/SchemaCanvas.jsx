@@ -555,7 +555,7 @@ const SchemaCanvas = forwardRef(({
                 ctx.restore();
             }
         }
-        const drawWires = () => {
+        const drawWires = (wireNames = false) => {
 
             // draw outline under hovered
             if (hovered.type === ObjectType.WIRE && dragMode.current !== DragModeType.ROUTING) {
@@ -586,46 +586,26 @@ const SchemaCanvas = forwardRef(({
                     DrawColor.SELECTED : DrawColor.NORMAL;
                 drawWire(ctx, wire.path, 1, drawColor, parrotsToScreen);
 
+// wires names for debug
+                if (wireNames) {
+                    for (let i = 0; i < wire.path.length - 1; i++) {
+                        const p1 = wire.path[i];
+                        const p2 = wire.path[i + 1];
 
+                        // Вычисляем середину текущего сегмента
+                        const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+                        const [tx, ty] = parrotsToScreen(mid);
 
+                        ctx.save();
+                        ctx.fillStyle = 'blue';
+                        ctx.font = '10px Arial'; // Чуть уменьшила шрифт, чтобы не было каши
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
+                        ctx.restore();
+                    }
 
-
-
-
-
-                // Вывод ID провода для отладки
-                /*
-                 const start = wire.path[0];
-                 const end = wire.path[wire.path.length - 1];
-                 const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
-                 const [tx, ty] = parrotsToScreen(mid);
-     
-                 ctx.save();
-                 ctx.fillStyle = 'blue';
-                 ctx.font = '12px Arial';
-                 ctx.textAlign = 'center';
-                 ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
-                 ctx.restore();
-             */
-                // Проходим по всем точкам пути, кроме последней, чтобы сформировать сегменты
-                for (let i = 0; i < wire.path.length - 1; i++) {
-                    const p1 = wire.path[i];
-                    const p2 = wire.path[i + 1];
-
-                    // Вычисляем середину текущего сегмента
-                    const mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
-                    const [tx, ty] = parrotsToScreen(mid);
-
-                    ctx.save();
-                    ctx.fillStyle = 'blue';
-                    ctx.font = '10px Arial'; // Чуть уменьшила шрифт, чтобы не было каши
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(`W${wire.wireId}`, tx, ty - 5);
-                    ctx.restore();
                 }
-
-
 
 
 
@@ -703,7 +683,7 @@ const SchemaCanvas = forwardRef(({
                         width: 1
                     };
                     drawElement(ctx, toDraw);
-                     drawPins(toDraw, ctx);
+                    drawPins(toDraw, ctx);
                     drawName(toDraw, ctx);
                 }
             });
