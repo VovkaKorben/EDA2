@@ -703,7 +703,7 @@ const SchemaCanvas = forwardRef(({
                         width: 1
                     };
                     drawElement(ctx, toDraw);
-                    drawPins(toDraw, ctx);
+                     drawPins(toDraw, ctx);
                     drawName(toDraw, ctx);
                 }
             });

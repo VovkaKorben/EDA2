@@ -26,8 +26,8 @@ export const pcbColor = Object.freeze({
     PCB: '',
     BOUND: '#750000',
     COPPER: '#8d5e00',
-    DEBUG: '#00000015',
-    ELEM: '#f002',
+    DEBUG: '#00000035',
+    ELEM: '#f00f',
     BLUE: '#0000ff44'
 });
 

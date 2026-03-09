@@ -167,7 +167,7 @@ export const prepareAStarGrid = (parrotBounds, libElements, schemaElements) => {
     }
     // adding weights for ELEMENTS
     Object.values(schemaElements.elements).forEach((elem) => {
-        let elemRect = libElements[elem.typeId].bounds[elem.rotate];
+        let elemRect = libElements[elem.typeId].bounds[elem.rotateIndex];
         elemRect = add(elemRect, elem.pos);
         elemRect = snapRect(elemRect);
         fillGrid(elemRect, COMPONENT_WEIGHT);

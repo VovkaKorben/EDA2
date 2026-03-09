@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback, } from 'react';
 
-import { dpr } from '../helpers/draw.js';
+import { dpr, drawTurtle } from '../helpers/draw.js';
 import { prettify } from '../helpers/debug.js';
 import { doRoute, PCB_UNIT } from '../helpers/route.js';
 import { ErrorCodes, pcbColor } from '../helpers/utils.js';
@@ -11,14 +11,14 @@ import {
 } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
-const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50];
-const defaultZoom = 10
+const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50,100,200];
+const defaultZoom = 12
 const pixInMm = 3.78
 const pcbMargin = 1
 const RouteShow = ({ libElements, schemaElements, onError }) => {
 
     const [view, setView] = useState({
-        pos: [-2, -2],
+        pos: [-0.2, -0.2],
         zoomIndex: defaultZoom,
         zoomValue: zoomLevels[defaultZoom]
     })
@@ -185,44 +185,15 @@ const RouteShow = ({ libElements, schemaElements, onError }) => {
                     ctx.save()
                     try {
                         ctx.translate(...anchor)
-                        drawCross({ pos: [0, 0], size: 20, color: '#f00', width: 1 })
+                        elem.turtle.forEach(prim => {
+                            // console.log(prim)
+                            drawTurtle(ctx, prim,zoom)
+                        })
+                        // drawCross({ pos: [0, 0], size: 20, color: '#f00', width: 1 })
+
+                        // 
                     } finally { ctx.restore() }
-                    /*let elemPos = multiply(elem.pos, zoom)
-                    elemPos = add(elemPos, startPt)
-                    elemPos = adjustPoint(elemPos)
-                    drawCross({ pos: elemPos, size: 20, color: '#f00', width: 2 })
-                    let b = elem.bounds
-                    b = multiply(b, zoom)
-*/
-
-                    // let elemPos = multiply(elem.pos, view.zoomValue);
-                    // elemPos = adjustPoint(elemPos);
-                    /*
-                                        ctx.save()
-                                        try {
-                                            ctx.translate(...elemPos);
-                                            ctx.beginPath();
-                                            ctx.arc(0, 0, 2, 0, 2 * Math.PI);
-                                            ctx.fill();
-                    
-                                            let rotatedBounds = rotate(elem.bounds, elem.rotateIndex);
-                                            // console.log(rotatedBounds)
-                                            rotatedBounds = normalize(rotatedBounds)
-                                            let zeroRect = [0, 0, getRectWidth(rotatedBounds), getRectHeight(rotatedBounds)]
-                                            zeroRect = multiply(zeroRect, zoom);
-                    
-                                            ctx.strokeRect(...zeroRect);
-                    
-                    
-                    
-                                        }
-                                        finally {
-                                            ctx.restore();
-                                        }
-                                            */
-                    // for (let x = 0; x < 4; x++) { let nb = rotate(elem.bounds, x); nb = normalize(nb); console.log(nb); }
-                    // const startPoint = rawParams.slice(p * 2, p * 2 + 2);
-
+              
 
                 })
 

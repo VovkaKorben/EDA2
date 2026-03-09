@@ -25,7 +25,7 @@ function App() {
     const [errorList, setErrorList] = useState([]);
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
-    const [showRoute, setShowRoute] = useState(true);
+    const [showRoute, setShowRoute] = useState(false);
     const refSchemaCanvas = useRef(null);
     const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
     const [libElements, setLibElements] = useState([]);

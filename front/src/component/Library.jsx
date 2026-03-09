@@ -39,7 +39,7 @@ const LibraryItem = ({ libElem }) => {
             pos: [libWidth / 2, libHeight / 2],
 
             zoom: z,
-            rotate: 0,
+            rotateIndex: 0,
             color: DrawColor.NORMAL,
             width: 1
         };

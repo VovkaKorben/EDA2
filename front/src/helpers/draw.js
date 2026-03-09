@@ -77,7 +77,7 @@ export const drawElement = (ctx, elem) => {
             Math.round(elem.pos[0] * dpr) / dpr + 0.5 / dpr,
             Math.round(elem.pos[1] * dpr) / dpr + 0.5 / dpr]
         ctx.translate(...tr);
-        ctx.rotate(elem.rotate * Math.PI / 2);
+        ctx.rotate(elem.rotateIndex * Math.PI / 2);
         // ctx.translate(Math.round(elem.pos[0] * dpr) / dpr, Math.round(elem.pos[1] * dpr) / dpr);
         ctx.lineWidth = elem.width / dpr;
         ctx.strokeStyle = elem.color;
@@ -103,7 +103,7 @@ export const drawPins = (elem, ctx) => {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
 
-        for (const [pinIndex, pinCoords] of Object.entries(elem.pins[elem.rotate])) {
+        for (const [pinIndex, pinCoords] of Object.entries(elem.pins[elem.rotateIndex])) {
             // let pt = addPoint(pinCoords, elem.pos);
             let pt = multiply(pinCoords, elem.zoom);
             pt = addPoint(pt, [7, -7]);

@@ -226,7 +226,7 @@ export const snapRectFloat = (rect, value = 1) => {
 
 export const isPointEqual = (pt1, pt2) => pt1[0] === pt2[0] && pt1[1] === pt2[1];
 
-export const parseTurtle = (turtleString) => {
+export const parseTurtle = (turtleString, divider = null) => {
     //console.log(turtleString);
     try {
         const rawPrimitives = [];
@@ -248,7 +248,11 @@ export const parseTurtle = (turtleString) => {
                         params.points = [];
 
                         for (let p = 0; p < Math.floor(rawParams.length / 2); p++) {
-                            params.points[p] = rawParams.slice(p * 2, p * 2 + 2);
+                            let pt = rawParams.slice(p * 2, p * 2 + 2);
+                            if (divider) { pt = divide(pt, divider) }
+                            params.points[p] = pt
+
+
                         }
                         // if params count is odd get last as style
                         params.style = rawParams.length % 2 ? rawParams.at(-1) : 0;
