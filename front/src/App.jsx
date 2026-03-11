@@ -193,8 +193,6 @@ function App() {
     };
 
 
-    //   useEffect(() => {        console.log(`libElements: ${Object.keys(libElements).length}`)    }, [libElements]);
-
 
     return (
         <BrowserRouter>
@@ -289,7 +287,10 @@ function App() {
 
                     </div>
                 } />
-                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth" element={
+                    <Auth />
+
+                } />
             </Routes>
         </BrowserRouter>
     )

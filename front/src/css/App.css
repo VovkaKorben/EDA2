@@ -4,23 +4,21 @@
     box-sizing: border-box;
 }
 
+
 body,
 html,
 select,
 input,
 label {
-
+    --font-name: "Saira Condensed", sans-serif;
     padding: 0px;
     margin: 0px;
-    font-family: "Saira Condensed", sans-serif;
+    font-family: var(--font-name);
     font-weight: 400;
     font-style: normal;
     font-size: 12px;
 }
 
-
-
-/* "header header header" */
 
 .app-container {
     --selection-bg: rgba(136, 255, 0, 0.399);
@@ -44,18 +42,13 @@ label {
 
 .main-bar {
     grid-area: main-bar;
-    /* border: 1px solid black; */
-
     padding: 0px 20px 0px 10px;
     gap: 10px;
     font-size: large;
     font-weight: bold;
-    /* margin: 0px 5px 5px 5px; */
-    /* background-color: pink; */
 }
 
 .app-container.route-mode {
-    /* Меняем сетку на 2 колонки и 2 строки */
     grid-template-columns: 1fr 270px;
     grid-template-rows: 54px 54px 200px 1fr;
     grid-template-areas:
@@ -177,6 +170,10 @@ label {
 a {
     text-decoration: none;
     color: inherit;
+    font-family: var(--font-name);
+    font-style: normal;
+    /* font-size: 12px;
+    font-weight: 400; */
 }
 
 a:hover {

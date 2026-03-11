@@ -1,0 +1,53 @@
+### clear mail
+DELETE http://localhost:3333/api/dev/clear/admin@gmail.com
+
+
+### reg
+POST http://localhost:3333/api/register 
+content-type: application/json
+
+{
+   "email": "admin@gmail.com",
+   "password": "VeryStrongPassword"
+}
+
+### confirm
+GET http://localhost:3333/api/confirm/P9TKdbOlNGiSO7OsEdcflNvWKgfNJC12n1jgMsJEE7A
+
+
+
+
+
+### login
+POST http://localhost:3333/api/login
+Content-Type: application/json
+
+{
+    "email": "admin@gmail.com",
+    "password": "123"
+}
+
+
+
+
+
+
+
+
+
+### 2. Регистрируем (теперь email точно свободен)
+# @name signup
+POST http://localhost:3333/api/register
+Content-Type: application/json
+
+{
+    "email": "admin@gmail.com",
+    "password": "123"
+}
+
+###
+
+### 3. Подтверждаем (переменная подхватится автоматом)
+@token = {{signup.response.body.confirm}}
+
+GET http://localhost:3333/api/confirm/{{token}}

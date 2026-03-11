@@ -359,3 +359,15 @@ export const drawGridDebug = (ctx, grid, parrotsToScreen) => {
 
     ctx.restore();
 };
+
+
+
+
+    const Page = ({ title, children }) => {
+        const appTitle = 'Simple EDA'
+        useEffect(() => {
+            document.title = title ? appTitle + ' :: ' + title : appTitle;
+        }, [title]);
+
+        return children;
+    };
