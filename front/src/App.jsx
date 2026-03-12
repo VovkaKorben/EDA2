@@ -1,15 +1,19 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import Controls from './component/Controls';
 import SchemaCanvas from './component/SchemaCanvas';
 import ElementsList from './component/ElementsList';
 import Library from './component/Library';
 import RouteShow from './component/RouteShow';
-import Auth from './component/Auth';
+
 import LayersList from './component/LayersList';
 
 import { ObjectType } from './helpers/utils.js';
 import { LoadElems } from './helpers/geo.js';
+
+import { AuthContext, AuthProvider } from './component/AuthContext'; // Путь к твоему файлу с контекстом
+import Auth from './component/Auth';
+
 import './css/App.css'
 import './css/flex.css'
 
@@ -22,7 +26,7 @@ const defaultSchemaElements = {
 };
 
 function App() {
-
+    const { user } = useContext(AuthContext);
     const [layers, setLayers] = useState(() => {
         const data = JSON.parse(localStorage.getItem('layers')) || {}
         return data;
@@ -195,6 +199,7 @@ function App() {
 
 
     return (
+
         <BrowserRouter>
             <Routes>
 
@@ -209,9 +214,30 @@ function App() {
                             </div  >
                             <div className="frcc" >filename                </div >
                             <div className="frcc" >
-                                <nav>
-                                    <Link to="/auth">login</Link>
-                                </nav>
+
+
+
+                                {
+                                    user?.isLoading ? <>checking...</> :
+                                        <nav>
+                                            <Link to="/auth">
+                                                {user ? <>{user.email}</> : <>login</>}
+                                            </Link>
+                                        </nav>
+                                }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                             </div >
                         </div>
@@ -293,6 +319,7 @@ function App() {
                 } />
             </Routes>
         </BrowserRouter>
+
     )
 }
 

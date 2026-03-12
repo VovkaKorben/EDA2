@@ -281,7 +281,7 @@ const convertPackage = (pkg) => {
 
 
         // extract coords from strings
-        const turtle = parseTurtle(pkg.turtle,PCB_UNIT);
+        const turtle = parseTurtle(pkg.turtle, PCB_UNIT);
         const pins = pinsToPoints(pkg.pins);
         const textPos = stringToCoords(pkg.textPos);
         // console.log(pkg);
@@ -426,7 +426,7 @@ const calcNetworkPins = (nets, pins) => {
             const elemPin = pins.find(p => p.elementId === pin.elementId && p.pinName === pin.pinIdx)
             let pos = elemPin.pinPos
             pos = rotate(pos, elemPin.rotateIndex)
-            pos = add(pos,elemPin.anchor)
+            pos = add(pos, elemPin.anchor)
             collect.push(pos)
         }
         result.push(collect)
@@ -443,7 +443,10 @@ export const doRoute = async (data) => {
         let { errors, packageIds } = getUsedPackageIds(data);
         if (errors.length > 0) {
             resultErrors.push(...errors)
-            return { errors: resultErrors }
+            return {
+                success: false,
+                errors: resultErrors
+            }
         }
         // read packages from DB
         const rawPackages = await fetchPackages(packageIds);
@@ -455,7 +458,10 @@ export const doRoute = async (data) => {
         errors = checkPins(data.libElements, packagesData);
         if (errors.length > 0) {
             resultErrors.push(...errors)
-            return { errors: resultErrors }
+            return {
+                success: false,
+                errors: resultErrors
+            }
         }
 
         // create Rect-array from used element-packages (pack rect algoritm uses Rect structures)
@@ -485,7 +491,10 @@ export const doRoute = async (data) => {
             let packedRect = packResult.rects.find(pr => pr.elementId === elemId)
             if (!packedRect) {
                 resultErrors.push({ code: ErrorCodes.ERROR, message: `ElementID ${elemId} not found in packed rects` })
-                return { errors: resultErrors }
+                return {
+                    success: false,
+                    errors: resultErrors
+                }
             }
 
             // store element rotating
@@ -532,7 +541,7 @@ export const doRoute = async (data) => {
                 elementId: elemId,
                 packageId: pkg.packageId,
                 packageName: pkg.name,
-                turtle:pkg.turtle,
+                turtle: pkg.turtle,
                 textPos: textPos,
                 text: text,
                 anchor: anchor,
@@ -579,6 +588,7 @@ export const doRoute = async (data) => {
         // console.error(`[doRoute] ${err.message}`);
     }
     return {
+        success: true,
         errors: resultErrors,
         data: result
 

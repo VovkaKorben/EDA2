@@ -107,6 +107,11 @@ export const normalize = (rect) => {
 
 }
 
+export const pointToString = (pt, decimals = null) => {
+    return decimals ? `${pt[0].toFixed(decimals)}x${pt[1].toFixed(decimals)}` : `${pt[0]}x${pt[1]}`
+
+}
+
 
 export const add = (figure, other) => {
 
@@ -271,8 +276,8 @@ export const parseTurtle = (turtleString, divider = null) => {
                         params.end = (rawParams.length > 4 ? rawParams[4] : 360) * Math.PI / 180;
                         params.style = rawParams.length > 5 ? rawParams[5] : 0
                         if (divider) {
-                             params.center = divide(params.center, divider)
-                             params.radius /= divider
+                            params.center = divide(params.center, divider)
+                            params.radius /= divider
                         }
 
                         break;

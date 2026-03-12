@@ -44,6 +44,6 @@ export const LayerTypes = Object.freeze({
     DRILLING: 'Drilling spots',
     COPPER: 'Copper',
     BOUND: 'PCB bound',
-    GRID: 'Grid'
-
+    GRID: 'Grid',
+ELEMENTS:'Elements Bound'
 });

@@ -31,6 +31,23 @@
 
 .auth-info {
     grid-area: auth-info;
+    grid-area: auth-info;
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+    /* Сбрасываем твой паддинг 50px для точной центровки */
+    overflow: hidden;
+}
+
+.auth-info-top,
+.auth-info-bottom {
+    flex: 1;
+    /* Делим блок строго 50/50 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
 .auth-login {
@@ -163,7 +180,7 @@
 
     margin-top: var(--vert-dist);
     max-width: 85%;
-    border: 1px solid red;
+    /* border: 1px solid red; */
 
 }
 
@@ -177,4 +194,34 @@
 
 .code-2 {
     color: red;
+}
+
+@keyframes intro {
+    0% {
+        color: #000000;
+    }
+
+    100% {
+        color: #ff0000;
+    }
+}
+
+@keyframes loop {
+    0% {
+        color: #f00;
+    }
+
+    50% {
+        color: #000;
+    }
+
+    100% {
+        color: #f00;
+    }
+}
+
+.ani-link:hover {
+    animation:
+        intro 1000ms forwards,
+        loop 1000ms infinite 1000ms;
 }

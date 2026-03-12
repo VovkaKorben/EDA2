@@ -143,7 +143,7 @@ app.post('/api/login', async (req, res) => {
         if (!trimmedEmail || !trimmedPassword)
             return res.status(200).json({
                 success: false,
-                code: 1, message: 'E-mail or password is empty!'
+                code: 2, message: 'E-mail or password is empty!'
             });
 
 
@@ -160,7 +160,7 @@ app.post('/api/login', async (req, res) => {
         if (!await bcrypt.compare(trimmedPassword, loginResult.password))
             return res.status(200).json({
                 success: false,
-                code: 2, message: 'Invalid passwords.'
+                code: 2, message: 'Invalid password!'
             });
 
         // generate tokens
@@ -425,6 +425,17 @@ app.delete('/api/dev/clear/:email', async (req, res) => {
     res.status(200).send('Clean');
 });
 
+// Эндпоинт для получения данных о себе
+app.get('/api/me', authMiddleware, (req, res) => {
+    // Данные уже лежат в req.user благодаря authMiddleware
+    res.status(200).json({
+        success: true,
+        user: {
+            id: req.user.id,
+            email: req.user.login // Та самая почта из токена
+        }
+    });
+});
 // Функция для очистки ресурсов
 const gracefulShutdown = async (signal) => {
     console.log(`\n⚠️  Received ${signal}. Shutting down...`);

@@ -51,3 +51,8 @@ Content-Type: application/json
 @token = {{signup.response.body.confirm}}
 
 GET http://localhost:3333/api/confirm/{{token}}
+
+
+### jwt test
+GET http://localhost:3333/api/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NCwibG9naW4iOiJhZG1pbkBnbWFpbC5jb20iLCJpYXQiOjE3NzMyOTUzMTksImV4cCI6MTc3MzI5NjIxOX0.kG3NijcPd_qSofSGy6FPY-IxP9xw6aGAS7rEBrOXDSI

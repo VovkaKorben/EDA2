@@ -6,14 +6,14 @@ import { doRoute, PCB_UNIT } from '../helpers/route.js';
 import { ErrorCodes, pcbColor, LayerTypes } from '../helpers/utils.js';
 import {
     clamp, adjustCtx, multiply, rotate, normalize, adjustPoint,
-    getRectWidth, getRectHeight, add, sub, expand,
+    getRectWidth, getRectHeight, add, sub, expand, pointToString,
     divide
 } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
 const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50, 75, 100, 200];
 const defaultZoom = 11
-const pixInMm = 3.78
+const pixInMm = 96 / 25.4
 const pcbMargin = 1
 const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
@@ -203,28 +203,33 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
             }
             const drawText = () => {//
-                const textHeight = pixInMm * 2 * 1.5;
+                const textHeight1 = 3 * view.zoomValue;
+                const textHeight2 = 1.2 * view.zoomValue;
+                const lineHeight = 1.6 * view.zoomValue;
+
+                // console.log('text height: ', textHeight)
                 ctx.save()
                 try {
 
                     // ctx.scale(3.78, 3.78);
-                    ctx.font = `${textHeight}px "pcb"`;
+
                     ctx.fillStyle = 'black';
                     ctx.textAlign = 'center'
                     ctx.textBaseline = 'middle'
                     routeData.elements.forEach(elem => {
-                        // console.log(elem.anchor)
+
                         let textPos = rotate(elem.textPos, elem.rotateIndex)
                         textPos = add(textPos, elem.anchor)
 
                         textPos = multiply(textPos, zoom)
                         textPos = add(textPos, startPt)
                         textPos = adjustPoint(textPos)
-                        // drawCross({ pos: textPos, size: 35, color: pcbColor.BLUE, width: 11 })
+                        ctx.font = `${textHeight1}px "pcb"`;
                         ctx.fillText(elem.text, ...textPos);
 
-                        textPos = add(textPos, [0, textHeight])
+                        textPos = add(textPos, [0, lineHeight])
                         textPos = adjustPoint(textPos)
+                        ctx.font = `${textHeight2}px "pcb"`;
                         ctx.fillText(elem.packageName, ...textPos);
 
 
@@ -342,8 +347,44 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 }
 
             }
+            const drawPcbBound = () => {
+                let marginedSize = add(routeData.pcbSize, pcbMargin * 2)
+                const pcbRect = [0, 0, ...marginedSize]
+                let pcbBoundRect = sub(pcbRect, view.pos)
+                pcbBoundRect = multiply(pcbBoundRect, zoom)
+                pcbBoundRect = adjustRect(pcbBoundRect);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = pcbColor.BOUND
+                ctx.strokeRect(...pcbBoundRect);
+            }
+
+            const drawElementsBound = () => {
+                ctx.strokeStyle = '#f0f'
+
+                routeData.elements.forEach(elem => {
+                    console.log(elem.text, prettify(elem.bounds, 0))
+                    ctx.save()
+                    try {
 
 
+                        //  bounds =    rotate(elem.bounds, elem.rotateIndex)
+                        
+                        let anchor = multiply(elem.anchor, zoom)
+                        anchor = add(anchor, startPt)
+                        ctx.translate(...anchor)
+
+ const bounds = multiply(elem.bounds, zoom)
+ ctx.strokeRect(...bounds)
+                        drawCross({ pos: [0, 0], size: 30, color: '#5f5', width: 1 })
+                    } finally {
+                        ctx.restore()
+                    }
+                    //
+
+                })
+
+
+            }
 
             // prepare and clear canvas
             const canvas = canvasRef.current;
@@ -359,35 +400,28 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
 
 
-            // shortcuts
-            // const rd = routeData.data;
             const zoom = PCB_UNIT * view.zoomValue
             let startPt = multiply(view.pos, -1)
             startPt = add(startPt, pcbMargin)
             startPt = multiply(startPt, zoom)
 
+            // prepare layers visibility
+            const layerVisible = {}
+            Object.keys(LayerTypes).forEach(l => layerVisible[l] = Object.hasOwn(layers, l) ? layers[l] : true)
 
             // draw PCB bound
-            let marginedSize = add(routeData.pcbSize, pcbMargin * 2)
-            const pcbRect = [0, 0, ...marginedSize]
-            let pcbBoundRect = sub(pcbRect, view.pos)
-            pcbBoundRect = multiply(pcbBoundRect, zoom)
-            pcbBoundRect = adjustRect(pcbBoundRect);
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = pcbColor.BOUND
-            ctx.strokeRect(...pcbBoundRect);
-
-            const layerVisible = {}
-
-            Object.keys(LayerTypes).forEach(l => layerVisible[l] = Object.hasOwn(layers, l) ? layers[l] : true)
-            console.log(layerVisible)
+            if (layerVisible.BOUND) drawPcbBound()
             if (layerVisible.GRID) drawDebugGrid()
-
             if (layerVisible.COPPER) {
                 drawCopper()
                 drawPins()
             }
             if (layerVisible.DRILLING) drawDrills()
+            if (layerVisible.ELEMENTS) {
+                drawElementsBound()
+            }
+
+
             if (layerVisible.SILKSCREEN) {
                 drawText()
                 drawElements()
@@ -411,20 +445,24 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
             try {
                 const result = await doRoute({ libElements, schemaElements });
-                // console.log(prettify(result, 2))
-                setRouteData(result.data);
-                // check calculation
-                onError?.(result.errors);
+                console.log(prettify(result, 2))
 
-                /* if (result.errors?.length > 0) {
-                     onError?.(result.errors);
-                 } else {
-                     onError?.([{
-                         code: ErrorCodes.INFO,
-                         message: `PCB size: ${result.data.pcbSize[0]}*${result.data.pcbSize[1]} pcb_units`
-                     }]);
-                 }*/
 
+                const errors = [...result.errors]
+                if (result.success) {
+                    const pcbMm = multiply(result.data.pcbSize, PCB_UNIT)
+                    errors.push({
+                        code: ErrorCodes.INFO,
+                        message: `PCB size (mm): ${pointToString(pcbMm, 2)}`
+                    })
+                    errors.push({
+                        code: ErrorCodes.INFO,
+                        message: `PCB size (units): ${pointToString(result.data.pcbSize)}`
+                    })
+
+                    setRouteData(result.data);
+                }
+                onError(errors);
             } catch (e) {
                 onError?.([
                     { code: ErrorCodes.ERROR, message: `Route critical error: ${e.message}` },

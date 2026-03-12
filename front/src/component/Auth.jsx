@@ -1,17 +1,15 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useContext } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+
+import { AuthContext } from './AuthContext';
+import api from '../helpers/api';
 
 import TextInput from './TextInput';
 import '../css/auth.css'
-const MSG_INIT = {
-    code: 0,
-    message: ''
-}
-const statusClasses = {
-    0: 'code-0',
-    1: 'code-1',
-    2: 'code-2'
-};
+const MSG_INIT = { code: 0, message: '' }
+const statusClasses = { 0: 'code-0', 1: 'code-1', 2: 'code-2' };
+
+
 const AuthMessage = ({ data }) => {
     if (!data?.message) return <div className="auth-msg" />;
 
@@ -22,7 +20,9 @@ const AuthMessage = ({ data }) => {
     );
 };
 const Auth = () => {
-    const [values, setValues] = useState({});
+    // const [refreshToken,]
+    const { user, login, logout } = useContext(AuthContext);
+    const [values, setValues] = useState({ hasEmail: 'admin@gmail.com', hasPassword: '' });
 
     const [messages, setMessages] = useState({
         login: MSG_INIT,
@@ -38,19 +38,55 @@ const Auth = () => {
         }))
     }
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
 
-        setMessages(prev => ({
-            ...prev,
-            login: { code: 2, message: 'dfgdsgsdg' }
+        try {
+            const res = await api.post('/login', {
+                email: values.hasEmail,
+                password: values.hasPassword
+            });
+
+            if (res.data?.success) {
+                // wait for login
+                await login({
+                    accessToken: res.data.accessToken,
+                    refreshToken: res.data.refreshToken
+                });
+                // clear errors
+                setMessages(prev => ({ ...prev, login: MSG_INIT }));
+                // clear credentials
+                setValues(prev => ({
+                    ...prev,
+                    hasEmail: '',
+                    hasPassword: ''
+                }))
+            } else {
+
+                // success === FALSE
+                setMessages(prev => ({
+                    ...prev,
+                    login: { code: res.data.code, message: res.data.message }
+                }));
 
 
-        }));
+            }
 
 
 
 
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Ошибка сервера';
+            setMessages(prev => ({
+                ...prev,
+                login: { code: 2, message: errorMsg }
+            }));
+        }
     }
+
+
+    const handleLogout = () => { logout(); }
+
+
 
 
     const handleRegister = () => { }
@@ -64,9 +100,26 @@ const Auth = () => {
 
 
         <div className="auth-grid">
+
+
+            {/* CURRENT USER INFO */}
             <div className="auth-info fcct">
-                <div>Current user</div>
-                <Link to="/">Back to editor</Link>
+                <div className="auth-info-top">
+
+                    {user?.isLoading ? (
+                        <span>Checking...</span>
+                    ) : user ? (
+                        <div>Logged as <strong>{user.email}</strong>
+                            <button className='auth-btn' onClick={handleLogout}>logout</button>
+                        </div>
+                    ) : (
+                        <span>Not logged in.</span>
+                    )}
+
+                </div>
+                <div className="auth-info-bottom ">
+                    <Link to="/" className='ani-link'>Back to editor</Link>
+                </div>
             </div>
 
             <div className="auth-login fcct">
