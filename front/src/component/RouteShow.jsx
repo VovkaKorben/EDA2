@@ -27,6 +27,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
     const [mouseDown, setMouseDown] = useState(false);
     const [mousePos, setMousePos] = useState(null);
+    const [fontsLoaded, setFontsLoaded] = useState(false);
 
     // WHEEL -------------------------------------------------------------------
     const handleWheel = (e) => {
@@ -81,13 +82,44 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
         })
         setMousePos(newMousePos)
     }
-    const handleMouseUp = (e) => {
+    const handleMouseUp = () => {
         setMouseDown(false)
     }
+    // font handler
+    useEffect(() => {
+        const checkAndLoadFont = async () => {
+            try {
+                // Принудительно просим браузер загрузить шрифт нужного размера
+                await document.fonts.load('12px pcb');
 
+                // Дополнительно ждем полной готовности всех ресурсов
+                await document.fonts.ready;
+
+                if (document.fonts.check('12px pcb')) {
+                    setFontsLoaded(true);
+                }
+            } catch (err) {
+                console.error('Font loading failed:', err);
+            }
+        };
+
+        checkAndLoadFont();
+
+        // Резервный механизм на случай динамической подгрузки
+        const handleLayout = () => {
+            if (document.fonts.check('12px pcb')) {
+                setFontsLoaded(true);
+                document.fonts.removeEventListener('loadingdone', handleLayout);
+            }
+        };
+        document.fonts.addEventListener('loadingdone', handleLayout);
+
+        return () => document.fonts.removeEventListener('loadingdone', handleLayout);
+    }, []);
 
     // DRAW -------------------------------------------------------------------
     const drawRoute = useCallback(() => {
+        // if (!fontsLoaded) return;
         try {
 
 
@@ -99,7 +131,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                     ctx.strokeStyle = color
                     const sz2 = Math.round(size / 2)
 
-                    //   pos = adjustPoint(pos)
+                    pos = adjustPoint(pos)
                     ctx.translate(...pos)
                     ctx.moveTo(-sz2, 0)
                     ctx.lineTo(sz2, 0)
@@ -114,9 +146,6 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
             }
 
-            // const zoomValue = 15;
-
-            //const zoomRect = (rct, z) => { return rct.map(v => v * z) }
             const adjustRect = (rct) => {
 
                 const adj = [
@@ -127,13 +156,8 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 ]
                 return adj;
             }
-            /*   const rectCenter = (rct) => {
-                   return [
-                       rct[0] + (rct[2] - rct[0]) / 2,
-                       rct[1] + (rct[3] - rct[1]) / 2
-                   ]
-               }
-                   */
+
+
 
             const drawDebugGrid = () => {//
                 ctx.strokeStyle = pcbColor.DEBUG
@@ -171,7 +195,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
             const drawElements = () => {//
 
                 // elements
-                ctx.strokeStyle = pcbColor.ELEM
+                ctx.strokeStyle = pcbColor.SILK
 
 
 
@@ -216,6 +240,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                     ctx.fillStyle = 'black';
                     ctx.textAlign = 'center'
                     ctx.textBaseline = 'middle'
+                    const fontName = fontsLoaded ? '"pcb"' : 'sans-serif';
                     routeData.elements.forEach(elem => {
 
                         let textPos = rotate(elem.textPos, elem.rotateIndex)
@@ -224,12 +249,12 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                         textPos = multiply(textPos, zoom)
                         textPos = add(textPos, startPt)
                         textPos = adjustPoint(textPos)
-                        ctx.font = `${textHeight1}px "pcb"`;
+                        ctx.font = `${textHeight1}px ${fontName}`;
                         ctx.fillText(elem.text, ...textPos);
 
                         textPos = add(textPos, [0, lineHeight])
                         textPos = adjustPoint(textPos)
-                        ctx.font = `${textHeight2}px "pcb"`;
+                        ctx.font = `${textHeight2}px ${fontName}`;
                         ctx.fillText(elem.packageName, ...textPos);
 
 
@@ -353,36 +378,53 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 let pcbBoundRect = sub(pcbRect, view.pos)
                 pcbBoundRect = multiply(pcbBoundRect, zoom)
                 pcbBoundRect = adjustRect(pcbBoundRect);
+
+                ctx.fillStyle = pcbColor.PCB_FILL
+                ctx.fillRect(...pcbBoundRect);
+
                 ctx.lineWidth = 1;
-                ctx.strokeStyle = pcbColor.BOUND
+                ctx.strokeStyle = pcbColor.PCB_BORDER
                 ctx.strokeRect(...pcbBoundRect);
             }
 
             const drawElementsBound = () => {
-                ctx.strokeStyle = '#f0f'
+                ctx.save()
+                try {
+                    ctx.strokeStyle = 'rgb(255, 0, 0)'
+                    ctx.setLineDash([10, 3]);
+                    routeData.elements.forEach(elem => {
+                        // console.log(elem.text, prettify(elem.packageBounds, 0))
+                        ctx.save()
+                        try {
 
-                routeData.elements.forEach(elem => {
-                    console.log(elem.text, prettify(elem.packageBounds, 0))
-                    ctx.save()
-                    try {
+
+                            let translatePoint = [...elem.anchor]
+                            translatePoint = multiply(translatePoint, zoom)
+                            translatePoint = add(translatePoint, startPt)
+                            translatePoint = adjustPoint(translatePoint)
+                            ctx.translate(...translatePoint)
 
 
-                        //  bounds =    rotate(elem.bounds, elem.rotateIndex)
 
-                        let anchor = multiply(elem.anchor, zoom)
-                        anchor = add(anchor, startPt)
-                        ctx.translate(...anchor)
+                            let bounds = [...elem.packageBounds]
+                            bounds = multiply(bounds, zoom)
 
-                        const bounds = multiply(elem.packageBounds, zoom)
-                        ctx.strokeRect(...bounds)
-                        drawCross({ pos: [0, 0], size: 30, color: '#5f5', width: 1 })
-                    } finally {
-                        ctx.restore()
-                    }
-                    //
+                            bounds[2] = Math.round(bounds[2] - bounds[0])
+                            bounds[3] = Math.round(bounds[3] - bounds[1])
+                            bounds[0] = Math.round(bounds[0])
+                            bounds[1] = Math.round(bounds[1])
+                            // bounds = rectToDrawable(bounds)
 
-                })
+                            ctx.strokeRect(...bounds)
+                        } finally {
+                            ctx.restore()
+                        }
+                        //
 
+                    })
+                } finally {
+                    ctx.restore()
+                }
 
             }
 
@@ -436,7 +478,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
         }
 
 
-    }, [routeData, view, layers]);
+    }, [routeData, view, layers, fontsLoaded]);
 
     // initial 
     useEffect(() => {

@@ -10,7 +10,6 @@ function isPlainObject(value) {
     return value !== null && typeof value === 'object' && value.constructor === Object;
 }
 
-
 export const stringToCoords = (coordsString) => {
     const exploded = coordsString.split(',');
     const n = exploded.map(v => +v);
@@ -429,3 +428,19 @@ export const LoadElems = async (elems, errors) => {
 
 
 }
+/*
+
+export const rectToDrawable = (rect) => {
+    let r = [...rect]
+    let rw = r[2] - r[0]
+    let rh = r[3] - r[1]
+    r[2] = Math.round(rw)
+    r[3] = Math.round(rh)
+    return r
+
+
+
+
+
+}
+*/

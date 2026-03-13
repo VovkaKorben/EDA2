@@ -6,7 +6,9 @@ import {
     divide,
 
     round, roundPoint, normalize,
-    add, isPointEqual
+    add, isPointEqual,
+    getRectWidth,
+    getRectHeight
 } from './geo.js';
 import { Rect } from './rect.js';
 import { API_URL, ErrorCodes, ObjectType } from './utils.js';
@@ -469,7 +471,14 @@ export const doRoute = async (data) => {
         for (const elem of Object.values(data.schemaElements.elements)) {
             const packageId = elem.packageId;
 
+            const t1 = divide(packagesData[packageId].bounds,PCB_UNIT)
+            const x1 = getRectWidth(t1)
+            const y1 = getRectHeight(t1)
+console.log(packagesData[packageId].name ,packagesData[packageId].bounds,t1,x1,y1 )
+
+
             const pkgRect = new Rect(...packagesData[packageId].bounds);
+            
             pkgRect.elementId = elem.elementId;
 
             packagesRects.push(pkgRect);

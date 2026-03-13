@@ -23,8 +23,10 @@ export const DrawColor = Object.freeze({
 });
 export const pcbColor = Object.freeze({
     BG: '#fff',
-    PCB: '',
+    PCB_FILL: '#00ff3c0c',
+    PCB_BORDER: '#000',
     BOUND: '#750000',
+    SILK: '#000',
     COPPER: '#8d5e00',
     DEBUG: '#00000035',
     ELEM: '#f00f',
@@ -45,5 +47,5 @@ export const LayerTypes = Object.freeze({
     COPPER: 'Copper',
     BOUND: 'PCB bound',
     GRID: 'Grid',
-ELEMENTS:'Elements Bound'
+    ELEMENTS: 'Elements Bound'
 });
