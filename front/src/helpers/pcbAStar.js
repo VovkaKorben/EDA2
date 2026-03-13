@@ -83,7 +83,7 @@ const octileDistance = (pt1, pt2) => {
     const F = Math.sqrt(2) - 1;
     return (dx < dy) ? F * dx + dy : F * dy + dx;
 }
-export const preparePcbAStar = (bounds, nets) => {
+export const preparePcbAStar = (bounds, nets, allPins) => {
     const grid = {};
 
     // add margins to global bound
@@ -109,6 +109,19 @@ export const preparePcbAStar = (bounds, nets) => {
         });
 
     }
+
+
+    // 2. Теперь даем "имена" всем остальным пинам
+    // Начнем нумерацию с (количество сетей + 1)
+    let orphanId = Object.keys(nets).length + 1;
+
+    allPins.forEach(pinPos => {
+        const flatIndex = toFlat(pinPos, grid.w);
+        // Если в этой клетке всё еще 0, значит пин не принадлежит ни одной сети
+        if (grid.pcb[flatIndex] === 0) {
+            grid.pcb[flatIndex] = orphanId++;
+        }
+    });
 
     return grid;
 }
@@ -268,7 +281,7 @@ export const doPcbAStar = (grid, start, netIndex) => {
 }
 
 
-export const routePcb = (pcbSize, nets) => {
+export const routePcb = (pcbSize, nets,allPins) => {
     const resultErrors = []
     let data = null
     try {
@@ -277,7 +290,7 @@ export const routePcb = (pcbSize, nets) => {
         const sortedNets = sortNets(nets)
 
         // init A*
-        const grid = preparePcbAStar(pcbSize, sortedNets)
+        const grid = preparePcbAStar(pcbSize, sortedNets,allPins)
         /*
         ставим первый пин в сетку
         и к меди тянем от 2(сейчас это только 1 пин)

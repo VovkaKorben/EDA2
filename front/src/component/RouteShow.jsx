@@ -12,7 +12,7 @@ import {
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
 const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50, 75, 100, 200];
-const defaultZoom = 11
+const defaultZoom = 10
 const pixInMm = 96 / 25.4
 const pcbMargin = 1
 const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
@@ -362,19 +362,19 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 ctx.strokeStyle = '#f0f'
 
                 routeData.elements.forEach(elem => {
-                    console.log(elem.text, prettify(elem.bounds, 0))
+                    console.log(elem.text, prettify(elem.packageBounds, 0))
                     ctx.save()
                     try {
 
 
                         //  bounds =    rotate(elem.bounds, elem.rotateIndex)
-                        
+
                         let anchor = multiply(elem.anchor, zoom)
                         anchor = add(anchor, startPt)
                         ctx.translate(...anchor)
 
- const bounds = multiply(elem.bounds, zoom)
- ctx.strokeRect(...bounds)
+                        const bounds = multiply(elem.packageBounds, zoom)
+                        ctx.strokeRect(...bounds)
                         drawCross({ pos: [0, 0], size: 30, color: '#5f5', width: 1 })
                     } finally {
                         ctx.restore()

@@ -513,13 +513,13 @@ export const doRoute = async (data) => {
             // console.log(`elemPos: ${elemPos}`)
 
             // element bounds
-            let elemBounds = [...pkg.bounds]
-            elemBounds = round(divide(elemBounds, PCB_UNIT))
-            const rotatedBounds = rotate(elemBounds, rotateIndex)
+            let packageBounds = [...pkg.bounds]
+            packageBounds = round(divide(packageBounds, PCB_UNIT))
+            const rotatedPackageBounds = rotate(packageBounds, rotateIndex)
 
 
             // first pin (anchor) position
-            let anchor = [packedRect[0] - rotatedBounds[0], packedRect[1] - rotatedBounds[1]]
+            let anchor = [packedRect[0] - rotatedPackageBounds[0], packedRect[1] - rotatedPackageBounds[1]]
 
             for (const [pinName, pinCoords] of Object.entries(pkg.pins)) {
 
@@ -546,7 +546,7 @@ export const doRoute = async (data) => {
                 text: text,
                 anchor: anchor,
                 rotateIndex: rotateIndex,
-                bounds: elemBounds
+                packageBounds: packageBounds
             });
         }
 
@@ -560,16 +560,17 @@ export const doRoute = async (data) => {
         const pinsInNetworks = calculateNetworks(data.schemaElements.wires)
         const posInNetworks = calcNetworkPins(pinsInNetworks, pins)
 
-        const routeResult = routePcb(pcbSizeNodes, posInNetworks)
+        const allPinCoords = pins.map(p => {
+            let pos = rotate(p.pinPos, p.rotateIndex);
+            return roundPoint(add(pos, p.anchor));
+        });
+
+
+        const routeResult = routePcb(pcbSizeNodes, posInNetworks, allPinCoords)
 
         if (routeResult.errors.length > 0) {
             resultErrors.push(...routeResult.errors)
-            // return { errors: errors }
         }
-
-        // console.log(prettify(posInNetworks, 1))
-        // console.log(prettify(pcbSizeNodes, 0))
-        // preparePcbAStar(pcbSize, netPins)
 
         result = {
             elements: elements,
@@ -580,12 +581,10 @@ export const doRoute = async (data) => {
         }
 
 
-        // console.log(prettify(packResult, 2));
 
     } catch (e) {
         console.error(`[doRoute] ${e.message}`);
         resultErrors.push({ code: ErrorCodes.ERROR, message: e.message })
-        // console.error(`[doRoute] ${err.message}`);
     }
     return {
         success: true,
