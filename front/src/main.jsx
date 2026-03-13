@@ -9,9 +9,9 @@ if (import.meta.hot) {
   import.meta.hot.on('vite:beforeUpdate', () => console.clear());
 }
 createRoot(document.getElementById('root')).render(
-  // <StrictMode>
-  <AuthProvider>
-    <App />
-  </AuthProvider >
-  // </StrictMode>,
+  <StrictMode>
+    <AuthProvider>
+      <App />
+    </AuthProvider >
+  </StrictMode>,
 )
