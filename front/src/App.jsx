@@ -7,6 +7,7 @@ import Library from './component/Library';
 import RouteShow from './component/RouteShow';
 
 import LayersList from './component/LayersList';
+import StorageControl from './component/StorageControl';
 
 import { ObjectType } from './helpers/utils.js';
 import { LoadElems } from './helpers/geo.js';
@@ -40,10 +41,12 @@ function App() {
     const [errorList, setErrorList] = useState([]);
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
-    const [showRoute, setShowRoute] = useState(true);
+    const [showRoute, setShowRoute] = useState(false);
     const refSchemaCanvas = useRef(null);
     const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
     const [libElements, setLibElements] = useState([]);
+    const [projectName, setProjectName] = useState('12345');
+
     useEffect(() => {
         const loadElems = async () => {
             //const loadedElems =
@@ -212,11 +215,15 @@ function App() {
                                 <img src='./chip.svg' />
                                 <span>Simple EDA</span>
                             </div  >
-                            <div className="frcc" >filename                </div >
                             <div className="frcc" >
+                                <StorageControl
+                                    projectName={projectName}
+                                />
+                            </div >
 
 
 
+                            <div className="frcc" >
                                 {
                                     user?.isLoading ? <>checking...</> :
                                         <nav>
@@ -225,20 +232,6 @@ function App() {
                                             </Link>
                                         </nav>
                                 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                             </div >
                         </div>
 
