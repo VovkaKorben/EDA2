@@ -104,7 +104,7 @@ const Auth = () => {
 
             {/* CURRENT USER INFO */}
             <div className="auth-info fcct">
-                <div className="auth-info-top">
+                <div className="auth-info-top fs-large">
 
                     {user?.isLoading ? (
                         <span>Checking...</span>
@@ -118,12 +118,12 @@ const Auth = () => {
 
                 </div>
                 <div className="auth-info-bottom ">
-                    <Link to="/" className='ani-link'>Back to editor</Link>
+                    <Link to="/" className='ani-link fs-large'>Back to editor</Link>
                 </div>
             </div>
 
             <div className="auth-login fcct">
-                <div>Already registered? Log in here.</div>
+                <div className='fs-large'>Already registered? Log in here.</div>
 
                 <TextInput
                     id='hasEmail'
@@ -142,7 +142,7 @@ const Auth = () => {
 
             </div>
             <div className="auth-register fcct">
-                <div className="auth-block-hdr">New user? Register here!</div>
+                <div className="auth-block-hdr fs-large">New user? Register here!</div>
                 <TextInput
                     id='newEmail'
                     value={values.newEmail ?? ''}
@@ -166,7 +166,7 @@ const Auth = () => {
                 <AuthMessage data={messages.register} />
             </div>
             <div className="auth-restore fcct">
-                <div >Forgot password?</div>
+                <div className='fs-large' >Forgot password?</div>
                 <TextInput
                     id='forgotEmail'
                     value={values.forgotEmail ?? ''}

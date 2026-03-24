@@ -179,3 +179,8 @@ a {
 a:hover {
     color: red;
 }
+
+.fs-large
+{
+    font-size: 30px;
+}

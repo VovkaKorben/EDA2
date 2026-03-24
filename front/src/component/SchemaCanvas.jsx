@@ -1058,14 +1058,14 @@ const SchemaCanvas = forwardRef(({
 
     return (
         <React.Fragment>
-            <div className='dbg-fixed'>
+          {/*  <div className='dbg-fixed'>
                 {`zIdx:${view.zoomIndex} zVal:${view.zoom}`}                <br />
                 {`V: ${_toFixed(view.pos)}`} <br />
 
                 {`Mouse: ${_toFixed(mousePos, 0)}`} <br />
                 {`Parrots: ${_toFixed(parrotsPos, 0)}`}
             </div>
-            {/* hovered: {prettify(hovered, 0)} */}
+             hovered: {prettify(hovered, 0)} */}
             <canvas
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}

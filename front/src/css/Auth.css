@@ -66,7 +66,7 @@
 .auth-grid>div {
     box-shadow: inset 0px 0px 15px 10px #0073ff23;
     border: 2px solid #0073ff;
-    font-size: 30px;
+    /* font-size: 30px; */
     position: relative;
     /* padding: var(--box-left-pad); */
     padding-top: 50px;

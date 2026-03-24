@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Controls from './component/Controls';
 import SchemaCanvas from './component/SchemaCanvas';
 import ElementsList from './component/ElementsList';
@@ -27,6 +27,8 @@ const defaultSchemaElements = {
 };
 
 function App() {
+    const navigate = useNavigate();
+
     const { user } = useContext(AuthContext);
     const [layers, setLayers] = useState(() => {
         const data = JSON.parse(localStorage.getItem('layers')) || {}
@@ -84,21 +86,22 @@ function App() {
             // case 1: LoadElems(); break;
             case 20: ClearSchema(false); break;//Clear all
             case 21: ClearSchema(true); break;//Clear wires
-            case 1:
-                {
-                    //load
-                    const data = JSON.parse(localStorage.getItem('saved') || defaultSchemaElements);
-                    setSchemaElements(data);
-                    break;
-                }
-            case 5: {//Save
-                localStorage.setItem('saved', JSON.stringify(schemaElements));
-                break;
-
-            }
+            case 2: { navigate('/project'); break; }
+            /*      case 1:
+                      {
+                          //load
+                          const data = JSON.parse(localStorage.getItem('saved') || defaultSchemaElements);
+                          setSchemaElements(data);
+                          break;
+                      }
+                  case 5: {//Save
+                      localStorage.setItem('saved', JSON.stringify(schemaElements));
+                      break;
+      
+                  }*/
             case 3: refSchemaCanvas.current?.resetView(); break;
 
-            // LOG WIRESd
+            // LOG WIRES
             case 400:
                 log_wires(schemaElements.wires);
                 break;
@@ -203,115 +206,122 @@ function App() {
 
     return (
 
-        <BrowserRouter>
-            <Routes>
+
+        <Routes>
 
 
-                <Route path="/" element={
-                    <div className={`app-container ${showRoute ? 'route-mode' : ''}`}>
+            <Route path="/" element={
+                <div className={`app-container ${showRoute ? 'route-mode' : ''}`}>
 
-                        <div className="main-bar frbc">
-                            <div className="frcc" >
-                                <img src='./chip.svg' />
-                                <span>Simple EDA</span>
-                            </div  >
-                            <div className="frcc" >
-                                <StorageControl
-                                    projectName={projectName}
-                                />
-                            </div >
-
-
-
-                            <div className="frcc" >
-                                {
-                                    user?.isLoading ? <>checking...</> :
-                                        <nav>
-                                            <Link to="/auth">
-                                                {user ? <>{user.email}</> : <>login</>}
-                                            </Link>
-                                        </nav>
-                                }
-                            </div >
-                        </div>
-
-
-                        <div className="control-bar">  <Controls onAction={handleAction} /></div>
-                        <div className="library">
-                            <Library
-                                libs={libElements}
+                    <div className="main-bar frbc">
+                        <div className="frcc" >
+                            <img src='./chip.svg' />
+                            <span>Simple EDA</span>
+                        </div  >
+                        <div className="frcc" >
+                            <StorageControl
+                                projectName={projectName}
                             />
-                        </div>
-                        <div className="elem-schema">
-                            <ElementsList
-                                schemaElements={schemaElements.elements}
+                        </div >
+
+
+
+                        <div className="frcc" >
+                            {
+                                user?.isLoading ? <>checking...</> :
+                                    <nav>
+                                        <Link to="/auth">
+                                            {user ? <>{user.email}</> : <>login</>}
+                                        </Link>
+                                    </nav>
+                            }
+                        </div >
+                    </div>
+
+
+                    <div className="control-bar">  <Controls onAction={handleAction} /></div>
+                    <div className="library">
+                        <Library
+                            libs={libElements}
+                        />
+                    </div>
+                    <div className="elem-schema">
+                        <ElementsList
+                            schemaElements={schemaElements.elements}
+                            libElements={libElements}
+                            hovered={hovered}
+                            selected={selected}
+
+
+                            hoveredChange={(obj) => setHovered(obj)}
+                            selectedChange={(obj) => setSelected(obj)}
+                            packageChange={data => setPackage(data)}
+                        />
+                    </div>
+                    <div className="schema">
+
+                        {showRoute ?
+                            <RouteShow
+                                onError={handleErrors}
+                                schemaElements={schemaElements}
                                 libElements={libElements}
+                                layers={layers}
+                            />
+
+
+                            :
+                            <SchemaCanvas
+                                ref={refSchemaCanvas}
+                                libElements={libElements}
+                                schemaElements={schemaElements}
+                                // onAddElement={handleAddElement}
+
                                 hovered={hovered}
                                 selected={selected}
 
-
-                                hoveredChange={(obj) => setHovered(obj)}
-                                selectedChange={(obj) => setSelected(obj)}
-                                packageChange={data => setPackage(data)}
-                            />
-                        </div>
-                        <div className="schema">
-
-                            {showRoute ?
-                                <RouteShow
-                                    onError={handleErrors}
-                                    schemaElements={schemaElements}
-                                    libElements={libElements}
-                                    layers={layers}
-                                />
-
-
-                                :
-                                <SchemaCanvas
-                                    ref={refSchemaCanvas}
-                                    libElements={libElements}
-                                    schemaElements={schemaElements}
-                                    // onAddElement={handleAddElement}
-
-                                    hovered={hovered}
-                                    selected={selected}
-
-                                    hoveredChanged={(obj) => setHovered(obj)}
-                                    selectedChanged={(obj) => setSelected(obj)}
-                                    onElemChanged={onElemChanged}
-                                    onElemDeleted={onElemDeleted}
-                                    onWiresChanged={onWiresChanged}
-                                />
-
-
-                            }
-                        </div>
-                        <div className="layers-list">
-                            <LayersList
-                                layers={layers}
-                                layersChanged={(v) => setLayers(v)}
+                                hoveredChanged={(obj) => setHovered(obj)}
+                                selectedChanged={(obj) => setSelected(obj)}
+                                onElemChanged={onElemChanged}
+                                onElemDeleted={onElemDeleted}
+                                onWiresChanged={onWiresChanged}
                             />
 
-                        </div>
-                        <div className="error-list">
-                            {
-                                errorList.map((e, i) => {
 
-                                    return <div className={`error-code-${e.code}`} key={i}>{e.message}</div>
-                                })
-                            }
-
-                        </div>
-
+                        }
+                    </div>
+                    <div className="layers-list">
+                        <LayersList
+                            layers={layers}
+                            layersChanged={(v) => setLayers(v)}
+                        />
 
                     </div>
-                } />
-                <Route path="/auth" element={
-                    <Auth />
+                    <div className="error-list">
+                        {
+                            errorList.map((e, i) => {
 
-                } />
-            </Routes>
-        </BrowserRouter>
+                                return <div className={`error-code-${e.code}`} key={i}>{e.message}</div>
+                            })
+                        }
+
+                    </div>
+
+
+                </div>
+            } />
+            <Route path="/auth" element={
+                <Auth />
+
+            } />
+            <Route path="/project" element={
+                <StorageControl
+
+                    projectName={projectName}
+                />
+
+            } />
+        </Routes>
+
 
     )
 }

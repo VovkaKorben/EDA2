@@ -349,7 +349,7 @@ const authMiddleware = (req, res, next) => {
     if (!token) return res.sendStatus(401);
 
     jwt.verify(token, ACCESS_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403); // Сюда прилетит, если токен протух
+        if (err) return res.sendStatus(401); // Сюда прилетит, если токен протух
         req.user = user;
         next();
     });
