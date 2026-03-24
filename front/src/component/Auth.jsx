@@ -6,6 +6,7 @@ import api from '../helpers/api';
 
 import TextInput from './TextInput';
 import '../css/auth.css'
+import '../css/vcl.css'
 const MSG_INIT = { code: 0, message: '' }
 const statusClasses = { 0: 'code-0', 1: 'code-1', 2: 'code-2' };
 
@@ -110,7 +111,7 @@ const Auth = () => {
                         <span>Checking...</span>
                     ) : user ? (
                         <div>Logged as <strong>{user.email}</strong>
-                            <button className='auth-btn' onClick={handleLogout}>logout</button>
+                            <button className='btn auth-btn' onClick={handleLogout}>logout</button>
                         </div>
                     ) : (
                         <span>Not logged in.</span>
@@ -137,7 +138,7 @@ const Auth = () => {
                     caption='password'
                     valueChanged={handleInputChanged}
                 />
-                <button className='auth-btn' onClick={handleLogin}>login</button>
+                <button className='btn auth-btn' onClick={handleLogin}>login</button>
                 <AuthMessage data={messages.login} />
 
             </div>
@@ -161,7 +162,7 @@ const Auth = () => {
                     caption='retype password'
                     valueChanged={handleInputChanged}
                 />
-                <button className='auth-btn' onClick={handleRegister}>register</button>
+                <button className='btn auth-btn' onClick={handleRegister}>register</button>
                 {/* <div className='auth-error'>{errors.register}</div > */}
                 <AuthMessage data={messages.register} />
             </div>
@@ -173,7 +174,7 @@ const Auth = () => {
                     caption='e-mail'
                     valueChanged={handleInputChanged}
                 />
-                <button className='auth-btn' onClick={handleForgot}>send restore info</button>
+                <button className='btn auth-btn' onClick={handleForgot}>send restore info</button>
                 {/* <div className='auth-error'>{errors.forgot}</div > */}
                 <AuthMessage data={messages.forgot} />
             </div>

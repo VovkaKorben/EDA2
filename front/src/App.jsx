@@ -47,7 +47,7 @@ function App() {
     const refSchemaCanvas = useRef(null);
     const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
     const [libElements, setLibElements] = useState([]);
-    const [projectName, setProjectName] = useState('12345');
+    const [projectId, setProjectId] = useState(null);
 
     useEffect(() => {
         const loadElems = async () => {
@@ -219,9 +219,7 @@ function App() {
                             <span>Simple EDA</span>
                         </div  >
                         <div className="frcc" >
-                            <StorageControl
-                                projectName={projectName}
-                            />
+                            <Link to="/project">                                {projectName ? projectName : 'Untitled scheme'}                            </Link>
                         </div >
 
 
@@ -316,6 +314,9 @@ function App() {
             <Route path="/project" element={
                 <StorageControl
 
+                    libElements={libElements}
+                    schemaElements={schemaElements}
+
                     projectName={projectName}
                 />
 
@@ -327,3 +328,17 @@ function App() {
 }
 
 export default App
+
+
+
+
+
+
+
+
+
+
+
+
+
+

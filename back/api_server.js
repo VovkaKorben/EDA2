@@ -436,6 +436,41 @@ app.get('/api/me', authMiddleware, (req, res) => {
         }
     });
 });
+
+// ------------------------------------------- projects list with preview
+app.get('/api/projects', authMiddleware, async (req, res) => {
+
+    try {
+        const db = await openDb();
+        const userId = req.user.id
+
+
+        // look up for confirm link
+        const projectListSql = 'SELECT projectId,name,preview,modified FROM projects WHERE userId = ?'
+        const projectListResult = await db.all(projectListSql, [userId]);
+        if (!projectListResult)
+            return res.status(200).json({
+                success: false,
+                code: 2, message: 'Confirmation link not found!'
+            });
+
+
+        return res.status(200).json({
+            success: true,
+            data: projectListResult
+        });
+    } catch (err) {
+        console.error('error:', err);
+        res.status(500).json({
+            success: false,
+            code: 2, message: err.stack
+        });
+    }
+
+})
+
+
+
 // Функция для очистки ресурсов
 const gracefulShutdown = async (signal) => {
     console.log(`\n⚠️  Received ${signal}. Shutting down...`);
