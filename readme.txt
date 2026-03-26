@@ -15,3 +15,9 @@
 так же у любой карточки, включая первую "Save as" есть возможность задать имя проекта
 
 на карточке показывается - имя проекта, время последней модификации, небольшое превью и кнопка удалить (видна условно)
+
+
+                first card      another cards
+onClick         save as         load project
+onRename        store LS        rename project
+onDelete        -               confirm + delete

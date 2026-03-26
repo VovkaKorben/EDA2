@@ -1,20 +1,20 @@
-import React, { useEffect, useState, useRef, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { useEffect, useState, useRef, useContext } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import { generateProjectPreview } from '../helpers/preview.js';
 import '../css/flex.css'
 import '../css/vcl.css'
 import '../css/projectList.css'
 import api from '../helpers/api.js';
+import { prettify_v3 } from '../helpers/debug.js';
 
 
-const PREVIEW_CONFIG = Object.freeze({
-    width: 250,  // Ширина карточки из твоего CSS
-    height: 200  // Желаемая высота зоны превью
-});
+const PREVIEW_CONFIG = Object.freeze({ width: 250, height: 200 });
 const ProjectNameEditor = ({ value, valueChanged }) => {
     const [temp, setTemp] = useState(value);
     const isEsc = useRef(false); // Стоп-сигнал
+
+
 
     return (
         <input
@@ -37,26 +37,38 @@ const ProjectNameEditor = ({ value, valueChanged }) => {
                 }
                 if (temp !== value) valueChanged(temp);
             }}
+            onClick={(e) => e.stopPropagation()}
         />
     );
 };
 
 const ProjectCard = ({ projectData, onProjectDelete, onProjectRename, onProjectClick }) => {
-    const [projectName, setProjectName] = useState(projectData.name);
 
-    useEffect(() => {
+    const handleDelete = (e) => {
+        e.stopPropagation();
+        if (onProjectDelete) {
+            onProjectDelete(projectData.projectId)
+        }
+    }
+
+    const handleRename = (newName) => {
         if (onProjectRename)
-            onProjectRename();
-    }, [projectName]);
+            onProjectRename(projectData.projectId, newName);
+    }
 
+    const date = new Date(projectData.modified);
     return (
-        <div className='project-card'>
+        <div
+            className='project-card'
+            onClick={() => onProjectClick(projectData.projectId)}
+        >
             <ProjectNameEditor
-                value={projectName}
-                valueChanged={setProjectName}
+                value={projectData.name}
+                valueChanged={(v) => handleRename(v)}
             />
             <div className='project-info'>
-                ewgfgdgdfgf
+                {projectData.projectId === null ? <>Click card to save new project</> : <>Modified: {date.toLocaleString()}</>}
+                {/* {<span className='prettify'>{prettify_v3(projectData, 2)}</span>} */}
             </div >
 
             <div className='project-preview-cont'>
@@ -71,7 +83,7 @@ const ProjectCard = ({ projectData, onProjectDelete, onProjectRename, onProjectC
             {projectData.projectId &&
                 <button
                     className='btn projects-btn'
-                    onClick={onProjectDelete}
+                    onClick={handleDelete}
                 >delete</button>}
 
         </div >
@@ -82,21 +94,21 @@ const ProjectCard = ({ projectData, onProjectDelete, onProjectRename, onProjectC
 }
 
 
-const StorageControl = ({ libElements, schemaElements, projectName }) => {
-    const { user } = useContext(AuthContext);
-    const [projects, setProjects] = useState([]);
+const StorageControl = ({ libElements, schemaElements, onProjectLoaded }) => {
+    const navigate = useNavigate();
+    const { user } = useContext(AuthContext)
+    const [projects, setProjects] = useState([])
+    const [error, setError] = useState('')
+    const inSave = useRef(false)
 
     const [saveAsFilename, setSaveAsFilename] = useState(() => {
-        const data = localStorage.getItem('saveAsFilename') || 'Untitled schema';
+        const data = localStorage.getItem('saveAsFilename') || 'New project';
         return data;
     });
     useEffect(() => { localStorage.setItem('saveAsFilename', saveAsFilename) }, [saveAsFilename]);
-    const handleSaveAs = () => {
-
-    }
 
 
-
+    // initial projects load
     useEffect(() => {
         const fetchProjects = async () => {
             if (!user) return;
@@ -108,27 +120,107 @@ const StorageControl = ({ libElements, schemaElements, projectName }) => {
         fetchProjects();
     }, [user]);
 
+    // if not authorized - return
     if (user?.isLoading) { return (<span>Checking...</span>) }
     if (!user) return (<span>Not logged in. Login here                <Link to="/auth" >authorization page</Link>            </span>)
 
 
-    // create data for SaveAs card
+    // create view data for SaveAs card
     const currentPreview = generateProjectPreview(schemaElements, libElements, PREVIEW_CONFIG.width, PREVIEW_CONFIG.height)
-
     const newProjectData = {
         projectId: null,
         preview: currentPreview,
         name: saveAsFilename
     }
 
+    // save new project
+    const handleSaveAs = async () => {
+        if (inSave.current) return;
+        inSave.current = true
+        try {
+            try {
+                const now = Date.now()
+                const newProjectData = {
+                    userId: user.id,
+                    name: saveAsFilename,
+                    schema: schemaElements,
+                    preview: currentPreview,
+                    created: now,
+                    modified: now
+                }
+                // console.log(prettify_v3(newProjectData, 2));
+                const savedProject = await api.post('/projects', newProjectData);
+                if (savedProject.data.success) {
+                    setProjects(prev => [...prev, savedProject.data.data])
+                } else
+                    setError(savedProject.data.message);
+
+            } catch (e) { console.error(e); }
+
+        }
+        finally {
+            inSave.current = false
+        }
+
+
+
+
+    }
+    const handleLoad = async (projectId) => {
+
+
+        if (!onProjectLoaded) return
+        try {
+            const loadResult = await api.get(`/projects/${projectId}`);
+
+            onProjectLoaded(loadResult.data.data)
+            navigate('/');
+        } catch (err) { setError(err.message); }
+    }
+    const handleDelete = async (projectId) => {
+        try {
+            const project = projects.find(p => p.projectId === projectId);
+            if (window.confirm(`Delete project "${project.name}"?\nThis action is irreversible!`)) {
+                const deleteResult = await api.delete(`/projects/${projectId}`);
+                if (deleteResult.data.success) {
+                    setProjects(prev => prev.filter(p => p.projectId !== projectId));
+                }
+                else { setError(deleteResult.data.message) }
+            }
+
+        } catch (err) { setError(err.message); }
+
+    }
+
+    const handleRename = async (projectId, newName) => {
+
+        // store projects state
+        const oldProjects = [...projects];
+        setProjects(prev => prev.map(p =>
+            p.projectId === projectId ? { ...p, name: newName } : p
+        ));
+
+
+        try {
+            // rename
+            const renameResult = await api.patch(`/projects/${projectId}`, { modified: Date.now(), newName: newName });
+            if (!renameResult.data.success) {
+                throw new Error(renameResult.data.message || 'Server error');
+            }
+        } catch (err) {
+            // revert if failed
+            setError(err.message);
+            setProjects(oldProjects);
+        }
+    }
 
 
     return (
-        <div >
-            <span className='fs-large'> Storage control</span>
-            <div>              Project name:  {projectName}            </div>
-            <div>                Logged as: {user.email}            </div>
+        <div style={{ 'margin': '20px' }}>
+            <span className='fs-large'> Storage control {error && <span className='error'>({error})</span>}</span>
 
+            <div><Link to="/auth" >Logged as: {user.email}</Link></div>
+            <div><Link to="/" >return to editor</Link></div>
 
             <div
                 className='projects-list fwr'
@@ -141,12 +233,21 @@ const StorageControl = ({ libElements, schemaElements, projectName }) => {
                 <ProjectCard
                     projectData={newProjectData}
                     key={-1}
-                    onProjectRename={(v) => setSaveAsFilename(v)}
+                    onProjectRename={(_, projectName) => setSaveAsFilename(projectName)}
                     onProjectClick={handleSaveAs}
 
                 />
 
-                {projects.map((proj, idx) => <ProjectCard key={idx} projectData={proj} />)}
+                {projects.map((proj, idx) =>
+                    <ProjectCard
+                        key={idx}
+                        projectData={proj}
+                        onProjectRename={handleRename}
+                        onProjectClick={handleLoad}
+                        onProjectDelete={handleDelete}
+
+                    />
+                )}
             </div>
 
 

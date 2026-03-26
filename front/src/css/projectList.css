@@ -1,6 +1,6 @@
 .projects-list {
     gap: 10px;
-    margin: 20px;
+    margin-top: 10px;
 }
 
 .project-card {
@@ -46,12 +46,6 @@
     /* margin:10px; */
 
     width: var(--preview-w);
-    /* box-sizing: border-box; */
-    /* display: block; */
-
-    /* margin: 0; */
-
-    /* border: 2px solid red; */
 }
 
 .project-name-input:hover {

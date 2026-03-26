@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import Controls from './component/Controls';
 import SchemaCanvas from './component/SchemaCanvas';
 import ElementsList from './component/ElementsList';
@@ -12,8 +12,9 @@ import StorageControl from './component/StorageControl';
 import { ObjectType } from './helpers/utils.js';
 import { LoadElems } from './helpers/geo.js';
 
-import { AuthContext, AuthProvider } from './component/AuthContext'; // Путь к твоему файлу с контекстом
+import { AuthContext } from './component/AuthContext'; // Путь к твоему файлу с контекстом
 import Auth from './component/Auth';
+import api from './helpers/api.js';
 
 import './css/App.css'
 import './css/flex.css'
@@ -30,45 +31,72 @@ function App() {
     const navigate = useNavigate();
 
     const { user } = useContext(AuthContext);
+
+    // PCB layers visibility load
     const [layers, setLayers] = useState(() => {
         const data = JSON.parse(localStorage.getItem('layers')) || {}
         return data;
     });
-    useEffect(() => {
-        // console.log(layers)
-        localStorage.setItem('layers', JSON.stringify(layers))
-    }, [layers]);
+    // PCB layers visibility store
+    useEffect(() => { localStorage.setItem('layers', JSON.stringify(layers)) }, [layers]);
 
 
     const [errorList, setErrorList] = useState([]);
+    const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
+
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
     const [showRoute, setShowRoute] = useState(false);
     const refSchemaCanvas = useRef(null);
-    const handleErrors = useCallback((newErrors) => { setErrorList(prev => [...prev, ...newErrors]); }, []);
     const [libElements, setLibElements] = useState([]);
-    const [projectId, setProjectId] = useState(null);
+
+    const [project, setProject] = useState(() => {
+        const data = JSON.parse(localStorage.getItem('project')) || { id: null, name: 'local copy' }
+        return data;
+    });
+    useEffect(() => {
+        localStorage.setItem('project', JSON.stringify(project))
+    }, [project]);
 
     useEffect(() => {
         const loadElems = async () => {
-            //const loadedElems =
             const elems = {};
             const errors = [];
             await LoadElems(elems, errors);
             handleErrors(errors)
-
-            // console.log('loadedElems: ' + prettify(loadedElems, 1));
             setLibElements(elems);
         }
         loadElems();
-
-        //console.log('libElements: ' + prettify(libElements, 1));        localStorage.setItem('libElements', JSON.stringify(libElements));
     }, [handleErrors]);
+
+
+
     const [schemaElements, setSchemaElements] = useState(() => {
         const data = JSON.parse(localStorage.getItem('schemaElements')) || defaultSchemaElements;
         return data;
     });
     useEffect(() => { localStorage.setItem('schemaElements', JSON.stringify(schemaElements)); }, [schemaElements]);
+
+
+    useEffect(() => {
+        // Если это локальная копия (id === null), в базу не лезем
+        if (!project.id) return;
+
+        const saveTimeout = setTimeout(async () => {
+            try {
+                await api.patch(`/projects/${project.id}`, {
+                    schema: schemaElements,
+                    modified: Date.now()
+                    // preview: currentPreview // если хочешь обновлять и картинку
+                });
+                console.log('Проект автосохранён в БД');
+            } catch (err) {
+                console.error('Ошибка автосохранения:', err);
+            }
+        }, 1000); // Задержка 1 секунда
+
+        return () => clearTimeout(saveTimeout);
+    }, [schemaElements, project.id]);
 
 
     const ClearSchema = (keep_elements) => {
@@ -194,14 +222,24 @@ function App() {
         Object.values(wires).forEach(w => {
 
 
-            let s = `[${w.wireId}] `;
+            let s = `[${w.wireId}] `
             s = s + add_node(w.source) + ' -> ' + add_node(w.target) //+ `  (netId: ${w.netId})`;
-            console.log(s);
+            console.log(s)
 
         })
 
     };
+    const handleProjectLoad = (project) => {
 
+        setHovered({ type: ObjectType.NONE })
+        setSelected({ type: ObjectType.NONE })
+
+        const projectState = { id: project.projectId, name: project.name }
+        setProject(projectState)
+        const projSchema = JSON.parse(project.schema)
+        setSchemaElements(projSchema)
+
+    }
 
 
     return (
@@ -219,7 +257,7 @@ function App() {
                             <span>Simple EDA</span>
                         </div  >
                         <div className="frcc" >
-                            <Link to="/project">                                {projectName ? projectName : 'Untitled scheme'}                            </Link>
+                            <Link to="/project">{project.name}</Link>
                         </div >
 
 
@@ -307,17 +345,23 @@ function App() {
 
                 </div>
             } />
+
+            {/* authorization page */}
             <Route path="/auth" element={
                 <Auth />
 
             } />
+
+            {/* project save/load */}
             <Route path="/project" element={
                 <StorageControl
 
                     libElements={libElements}
                     schemaElements={schemaElements}
 
-                    projectName={projectName}
+                    // projectName={projectId}
+
+                    onProjectLoaded={handleProjectLoad}
                 />
 
             } />
