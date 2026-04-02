@@ -89,9 +89,9 @@ function App() {
                     modified: Date.now()
                     // preview: currentPreview // если хочешь обновлять и картинку
                 });
-                console.log('Проект автосохранён в БД');
+                console.log('Project saved');
             } catch (err) {
-                console.error('Ошибка автосохранения:', err);
+                console.error('Autosave error: ', err);
             }
         }, 1000); // Задержка 1 секунда
 
