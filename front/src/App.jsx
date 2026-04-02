@@ -51,10 +51,12 @@ function App() {
     const [libElements, setLibElements] = useState([]);
     const isDirty = useRef(false);
 
+
+
     const [project, setProject] = useState(() => {
-        const data = JSON.parse(localStorage.getItem('project')) || { id: null, name: 'local copy' }
-        return data;
+        return JSON.parse(localStorage.getItem('project')) || { projectId: null, name: 'local copy' }
     });
+
     useEffect(() => {
         localStorage.setItem('project', JSON.stringify(project))
     }, [project]);
@@ -80,12 +82,12 @@ function App() {
 
     // autosave project
     useEffect(() => {
-        if (!project.id || !isDirty.current) return
+        if (!project.projectId || !isDirty.current) return
 
 
         const saveTimeout = setTimeout(async () => {
             try {
-                await api.patch(`/projects/${project.id}`, { schema: schemaElements });
+                await api.patch(`/projects/${project.projectId}`, { schema: schemaElements });
                 isDirty.current = false
                 // console.log('Project saved');
             } catch (err) {
@@ -94,7 +96,7 @@ function App() {
         }, 1000); // debounce 1 second
 
         return () => clearTimeout(saveTimeout);
-    }, [schemaElements, project.id]);
+    }, [schemaElements, project.projectId]);
 
 
     const ClearSchema = (keep_elements) => {
@@ -235,10 +237,10 @@ function App() {
         setHovered({ type: ObjectType.NONE })
         setSelected({ type: ObjectType.NONE })
 
-        const projectState = { id: project.projectId, name: project.name }
+        const projectState = { projectId: project.projectId, name: project.name }
         setProject(projectState)
-        const projSchema = JSON.parse(project.schema)
-        setSchemaElements(projSchema)
+        // const projSchema = JSON.parse(project.schema)
+        setSchemaElements(project.schema)
 
     }
 

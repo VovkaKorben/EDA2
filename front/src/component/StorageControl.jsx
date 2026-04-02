@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useContext } from 'react';
+import { useEffect, useState, useRef, useContext, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import { generateProjectPreview } from '../helpers/preview.js';
@@ -108,22 +108,24 @@ const StorageControl = ({ libElements, schemaElements, currentProject, onProject
 
 
     // create view data for SaveAs card
-    const currentPreview = generateProjectPreview(schemaElements, libElements, PREVIEW_CONFIG.width, PREVIEW_CONFIG.height)
+    const currentPreview = useMemo(() =>
+        generateProjectPreview(schemaElements, libElements, PREVIEW_CONFIG.width, PREVIEW_CONFIG.height),
+        [schemaElements, libElements]
+    )
+
     const newProjectData = {
         projectId: null,
         preview: currentPreview,
         name: saveAsFilename
     }
 
-    useEffect(() => { localStorage.setItem('saveAsFilename', saveAsFilename) }, [saveAsFilename]);
-
+    useEffect(() => { localStorage.setItem('saveAsFilename', saveAsFilename) }, [saveAsFilename])
     useEffect(() => {
-        // Обновляем превью только для активного проекта при входе в менеджер
-        if (currentProject?.id) {
-            api.patch(`/projects/${currentProject.id}`, { preview: currentPreview })
-                .catch(e => console.error('Preview sync failed', e));
+        if (currentProject?.projectId) {
+            api.patch(`/projects/${currentProject.projectId}`, { preview: currentPreview })
+                .catch(e => console.error('Preview sync failed', e))
         }
-    }, [currentPreview, currentProject.id]);
+    }, [currentPreview, currentProject?.projectId])
 
     // initial projects load
     useEffect(() => {
@@ -159,12 +161,13 @@ const StorageControl = ({ libElements, schemaElements, currentProject, onProject
                     created: now,
                     modified: now
                 }
-                // console.log(prettify_v3(newProjectData, 2));
-                const savedProject = await api.post('/projects', newProjectData);
+
+                const savedProject = await api.post('/projects', newProjectData)
                 if (savedProject.data.success) {
                     setProjects(prev => [...prev, savedProject.data.data])
+                    onProjectLoaded(savedProject.data.data)
                 } else
-                    setError(savedProject.data.message);
+                    setError(savedProject.data.message)
 
             } catch (e) { console.error(e); }
 

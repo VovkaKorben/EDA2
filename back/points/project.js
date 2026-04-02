@@ -53,6 +53,9 @@ router.get('/api/projects/:projectId', authMiddleware, async (req, res) => {
                 code: 2, message: 'project not found!'
             });
 
+        if (projectLoadResult.schema) {
+            projectLoadResult.schema = JSON.parse(projectLoadResult.schema);
+        }
 
         return res.status(200).json({
             success: true,

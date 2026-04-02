@@ -38,8 +38,8 @@ export const generateProjectPreview = (schemaElements, libElements, width = 300,
     // Если схема пуста — возвращаем прозрачный холст или null
     if (bounds[0] === Infinity) return tempCanvas.toDataURL('image/png');
 
-    const parrotW = getRectWidth(bounds);
-    const parrotH = getRectHeight(bounds);
+    const parrotW = getRectWidth(bounds) || 1
+    const parrotH = getRectHeight(bounds) || 1
 
     // 2. Свободное масштабирование (с отступом 10%)
     const zoom = Math.min(width / (parrotW * GRID_SIZE), height / (parrotH * GRID_SIZE)) * 0.9;
