@@ -49,6 +49,7 @@ function App() {
     const [showRoute, setShowRoute] = useState(false);
     const refSchemaCanvas = useRef(null);
     const [libElements, setLibElements] = useState([]);
+    const isDirty = useRef(false);
 
     const [project, setProject] = useState(() => {
         const data = JSON.parse(localStorage.getItem('project')) || { id: null, name: 'local copy' }
@@ -77,29 +78,27 @@ function App() {
     });
     useEffect(() => { localStorage.setItem('schemaElements', JSON.stringify(schemaElements)); }, [schemaElements]);
 
-
+    // autosave project
     useEffect(() => {
-        // Если это локальная копия (id === null), в базу не лезем
-        if (!project.id) return;
+        if (!project.id || !isDirty.current) return
+
 
         const saveTimeout = setTimeout(async () => {
             try {
-                await api.patch(`/projects/${project.id}`, {
-                    schema: schemaElements,
-                    modified: Date.now()
-                    // preview: currentPreview // если хочешь обновлять и картинку
-                });
-                console.log('Project saved');
+                await api.patch(`/projects/${project.id}`, { schema: schemaElements });
+                isDirty.current = false
+                // console.log('Project saved');
             } catch (err) {
                 console.error('Autosave error: ', err);
             }
-        }, 1000); // Задержка 1 секунда
+        }, 1000); // debounce 1 second
 
         return () => clearTimeout(saveTimeout);
     }, [schemaElements, project.id]);
 
 
     const ClearSchema = (keep_elements) => {
+        isDirty.current = true
         const newElements = keep_elements ? { ...schemaElements.elements } : {};
         setSchemaElements({
             elements: newElements,
@@ -158,6 +157,7 @@ function App() {
 
     // update package
     const setPackage = (data) => {
+        isDirty.current = true
         setSchemaElements(prev => {
             // const newElements = { ...};
             const newElement = {
@@ -174,6 +174,7 @@ function App() {
 
     // add/modify element
     const onElemChanged = useCallback((elem, select) => {
+        isDirty.current = true
         setSchemaElements(prev => {
             const newElements = { ...prev.elements, [elem.elementId]: elem };
             if (select) {
@@ -185,14 +186,14 @@ function App() {
 
     // update wires 
     const onWiresChanged = useCallback((wires) => {
-
+        isDirty.current = true
         setSchemaElements(prev => ({ ...prev, wires: wires }))
 
     }, []);
 
     // delete element
     const onElemDeleted = useCallback((elementId) => {
-
+        isDirty.current = true
         setSchemaElements(prev => {
             const newElements = { ...prev.elements };
             delete newElements[elementId];
@@ -230,7 +231,7 @@ function App() {
 
     };
     const handleProjectLoad = (project) => {
-
+        isDirty.current = false
         setHovered({ type: ObjectType.NONE })
         setSelected({ type: ObjectType.NONE })
 
@@ -358,9 +359,7 @@ function App() {
 
                     libElements={libElements}
                     schemaElements={schemaElements}
-
-                    // projectName={projectId}
-
+                    currentProject={project}
                     onProjectLoaded={handleProjectLoad}
                 />
 

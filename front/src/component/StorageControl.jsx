@@ -94,7 +94,7 @@ const ProjectCard = ({ projectData, onProjectDelete, onProjectRename, onProjectC
 }
 
 
-const StorageControl = ({ libElements, schemaElements, onProjectLoaded }) => {
+const StorageControl = ({ libElements, schemaElements, currentProject, onProjectLoaded }) => {
     const navigate = useNavigate();
     const { user } = useContext(AuthContext)
     const [projects, setProjects] = useState([])
@@ -105,8 +105,25 @@ const StorageControl = ({ libElements, schemaElements, onProjectLoaded }) => {
         const data = localStorage.getItem('saveAsFilename') || 'New project';
         return data;
     });
+
+
+    // create view data for SaveAs card
+    const currentPreview = generateProjectPreview(schemaElements, libElements, PREVIEW_CONFIG.width, PREVIEW_CONFIG.height)
+    const newProjectData = {
+        projectId: null,
+        preview: currentPreview,
+        name: saveAsFilename
+    }
+
     useEffect(() => { localStorage.setItem('saveAsFilename', saveAsFilename) }, [saveAsFilename]);
 
+    useEffect(() => {
+        // Обновляем превью только для активного проекта при входе в менеджер
+        if (currentProject?.id) {
+            api.patch(`/projects/${currentProject.id}`, { preview: currentPreview })
+                .catch(e => console.error('Preview sync failed', e));
+        }
+    }, [currentPreview, currentProject.id]);
 
     // initial projects load
     useEffect(() => {
@@ -125,13 +142,7 @@ const StorageControl = ({ libElements, schemaElements, onProjectLoaded }) => {
     if (!user) return (<span>Not logged in. Login here                <Link to="/auth" >authorization page</Link>            </span>)
 
 
-    // create view data for SaveAs card
-    const currentPreview = generateProjectPreview(schemaElements, libElements, PREVIEW_CONFIG.width, PREVIEW_CONFIG.height)
-    const newProjectData = {
-        projectId: null,
-        preview: currentPreview,
-        name: saveAsFilename
-    }
+
 
     // save new project
     const handleSaveAs = async () => {
@@ -203,7 +214,7 @@ const StorageControl = ({ libElements, schemaElements, onProjectLoaded }) => {
 
         try {
             // rename
-            const renameResult = await api.patch(`/projects/${projectId}`, { modified: Date.now(), newName: newName });
+            const renameResult = await api.patch(`/projects/${projectId}`, { newName: newName });
             if (!renameResult.data.success) {
                 throw new Error(renameResult.data.message || 'Server error');
             }
