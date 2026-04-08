@@ -827,7 +827,8 @@ const SchemaCanvas = forwardRef(({
                     if (dragMode.current === DragModeType.NONE) {
                         switch (selectedRef.current.type) {
                             case ObjectType.ELEMENT:
-                                selectedChanged({ type: ObjectType.NONE });
+                            hoveredChanged ({ type: ObjectType.NONE })   
+                            selectedChanged({ type: ObjectType.NONE })
                                 onElemDeleted(selectedRef.current.elementId);
                                 break;
                             case ObjectType.WIRE:
@@ -853,7 +854,7 @@ const SchemaCanvas = forwardRef(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged, onElemDeleted, selectedChanged, deleteWire, zoomFit]);
+    }, [hoveredChanged,onElemChanged, onElemDeleted, selectedChanged, deleteWire, zoomFit]);
 
 
     // WHEEL -------------------------------------------------------------------
