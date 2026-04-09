@@ -68,14 +68,27 @@ export function prettify(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
  * Улучшенная версия prettify с поддержкой типизированных массивов (Float32Array и др.)
  */
 export function prettify_v2(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
-    // Проверка на null или не-объект
+    // 1. Обработка строк с обрезкой
+    if (typeof obj === 'string') {
+        const truncated = obj.length > 50 ? obj.slice(0, 50) + '...' : obj;
+        return JSON.stringify(truncated);
+    }
+
+    // 2. Базовые типы (числа, null и т.д.)
     if (typeof obj !== 'object' || obj === null) {
         return JSON.stringify(obj);
     }
 
-    // Если достигли лимита глубины — выводим всё в одну строку
+    // 3. Рекурсивная обрезка при достижении лимита глубины
     if (currentDepth >= maxDepth) {
-        return JSON.stringify(obj);
+        const tr = (v) => {
+            if (typeof v === 'string') return v.length > 50 ? v.slice(0, 50) + '...' : v;
+            if (v && typeof v === 'object' && !ArrayBuffer.isView(v)) {
+                return Array.isArray(v) ? v.map(tr) : Object.fromEntries(Object.entries(v).map(([k, val]) => [k, tr(val)]));
+            }
+            return v;
+        };
+        return JSON.stringify(tr(obj));
     }
 
     const indent = ' '.repeat(indentSpaces);
@@ -104,7 +117,16 @@ export function prettify_v2(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
 
         for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
-            const value = prettify_v2(obj[key], maxDepth, currentDepth + 1, indentSpaces);
+            // const value = prettify_v2(obj[key], maxDepth, currentDepth + 1, indentSpaces);
+
+            // Стало (точечная замена):
+            let valRaw = obj[key];
+            if (typeof valRaw === 'string' && valRaw.length > 50) valRaw = valRaw.slice(0, 50) + '...';
+            const value = (currentDepth + 1 >= maxDepth && typeof valRaw === 'object' && valRaw !== null)
+                ? JSON.stringify(valRaw)
+                : prettify_v2(valRaw, maxDepth, currentDepth + 1, indentSpaces);
+
+
             output += indent.repeat(currentDepth + 1) + JSON.stringify(key) + ': ' + value;
 
             if (i < keys.length - 1) {
@@ -119,5 +141,58 @@ export function prettify_v2(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
     return output;
 }
 
+export function prettify_v3(obj, maxDepth, currentDepth = 0, indentSpaces = 2) {
+    // 1. Если это строка — режем сразу
+    if (typeof obj === 'string') {
+        const truncated = obj.length > 50 ? obj.slice(0, 50) + '...' : obj;
+        return JSON.stringify(truncated);
+    }
+
+    // 2. Если не объект — возвращаем как есть
+    if (typeof obj !== 'object' || obj === null) {
+        return JSON.stringify(obj);
+    }
+
+    // 3. ФИКС: Убрали выход по currentDepth >= maxDepth отсюда.
+    // Теперь функция всегда заходит в отрисовку структуры.
+
+    const indent = ' '.repeat(indentSpaces);
+    let output = '';
+    const isArrayLike = Array.isArray(obj) || ArrayBuffer.isView(obj);
+
+    if (isArrayLike) {
+        output += '[\n';
+        for (let i = 0; i < obj.length; i++) {
+            // Если достигли глубины — схлопываем вложенности в строку, если нет — рекурсия
+            const value = (currentDepth >= maxDepth) 
+                ? JSON.stringify(obj[i]) 
+                : prettify_v2(obj[i], maxDepth, currentDepth + 1, indentSpaces);
+            
+            output += indent.repeat(currentDepth + 1) + value;
+            output += (i < obj.length - 1) ? ',\n' : '\n';
+        }
+        output += indent.repeat(currentDepth) + ']';
+    } else {
+        const keys = Object.keys(obj);
+        output += '{\n';
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const valRaw = obj[key];
+
+            // Если глубина достигнута — пишем значение в строку, иначе идем вглубь
+            // При этом строки внутри JSON.stringify(valRaw) не порежутся сами по себе,
+            // поэтому для строк вызываем prettify_v2 принудительно.
+            const value = (typeof valRaw !== 'string' && currentDepth >= maxDepth)
+                ? JSON.stringify(valRaw)
+                : prettify_v2(valRaw, maxDepth, currentDepth + 1, indentSpaces);
+
+            output += indent.repeat(currentDepth + 1) + JSON.stringify(key) + ': ' + value;
+            output += (i < keys.length - 1) ? ',\n' : '\n';
+        }
+        output += indent.repeat(currentDepth) + '}';
+    }
+
+    return output;
+}
 
 export function pprint(value, depth = 1) { console.log(prettify(value, depth)); }

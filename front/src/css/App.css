@@ -4,6 +4,12 @@
     box-sizing: border-box;
 }
 
+#root {
+    --color-norm: #000000;
+    --color-sel: #0073ff;
+    --btn-trans: 211ms;
+    --font-large:26px;
+}
 
 body,
 html,
@@ -178,4 +184,8 @@ a {
 
 a:hover {
     color: red;
+}
+
+.fs-large {
+    font-size: 30px;
 }

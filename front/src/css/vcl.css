@@ -1,0 +1,22 @@
+.btn {
+    /* width: 300px; */
+    height: 55px;
+    margin-top: 20px;
+    background-color: var(--color-norm);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: var(--font-large);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--btn-trans) ease;
+}
+
+.btn:hover {
+
+    background-color: var(--color-sel);
+}

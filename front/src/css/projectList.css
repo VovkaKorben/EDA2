@@ -1,0 +1,96 @@
+.projects-list {
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.project-card {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+
+    border: 1px solid #333;
+
+    transition: background 0.3s ease;
+
+
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    border: 1px solid #333;
+    width: fit-content;
+    border-radius: 8px;
+    overflow: hidden;
+
+    padding: 10px;
+}
+
+.project-card:hover {
+    background-color: #0000ff05;
+}
+
+/* NAME EDITOR */
+
+
+
+.project-name-input {
+    /* width: 100%; */
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 4px 0px;
+    font-size: var(--font-large);
+    color: inherit;
+    outline: none;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    /* margin:10px; */
+
+    width: var(--preview-w);
+}
+
+.project-name-input:hover {
+    border-bottom: 1px dashed rgba(15, 15, 193, 0.3);
+}
+
+.project-name-input:focus {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #4a90e2;
+    cursor: text;
+}
+
+
+
+/* PREVIEW AREA */
+
+
+.project-preview-cont {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+
+    width: var(--preview-w);
+    height: var(--preview-h);
+    outline: 1px dashed rgba(0, 0, 255, 0.05);
+}
+
+/* BUTTON */
+
+.projects-btn {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translate(-50%, 0px);
+    opacity: 0.0;
+    width: 50%;
+    white-space: nowrap;
+}
+
+.project-card:hover .projects-btn {
+    opacity: 0.1;
+}
+
+.project-card .projects-btn:hover {
+    opacity: 1;
+}

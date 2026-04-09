@@ -252,11 +252,11 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                         ctx.font = `${textHeight1}px ${fontName}`;
                         ctx.fillText(elem.text, ...textPos);
 
-                        textPos = add(textPos, [0, lineHeight])
-                        textPos = adjustPoint(textPos)
-                        ctx.font = `${textHeight2}px ${fontName}`;
-                        ctx.fillText(elem.packageName, ...textPos);
-
+                        /* textPos = add(textPos, [0, lineHeight])
+                         textPos = adjustPoint(textPos)
+                         ctx.font = `${textHeight2}px ${fontName}`;
+                         ctx.fillText(elem.packageName, ...textPos);
+ */
 
 
 

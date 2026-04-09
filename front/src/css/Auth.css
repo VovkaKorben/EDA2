@@ -7,8 +7,7 @@
 .auth-grid {
     /* --box-left-pad: 20px; */
     --font-sz: 18px;
-    --color-norm: #000000;
-    --color-sel: #0073ff;
+
     --main-width: 1060px;
     --vert-dist: 20px;
 
@@ -66,7 +65,7 @@
 .auth-grid>div {
     box-shadow: inset 0px 0px 15px 10px #0073ff23;
     border: 2px solid #0073ff;
-    font-size: 30px;
+    /* font-size: 30px; */
     position: relative;
     /* padding: var(--box-left-pad); */
     padding-top: 50px;
@@ -151,30 +150,6 @@
 
 
 
-.auth-btn {
-    width: 300px;
-    height: 55px;
-    margin-top: 20px;
-    background-color: var(--color-norm);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-size: var(--font-sz);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 250ms ease;
-}
-
-.auth-btn:hover {
-
-    background-color: var(--color-sel);
-}
-
-
 
 .auth-msg {
 
@@ -224,4 +199,8 @@
     animation:
         intro 1000ms forwards,
         loop 1000ms infinite 1000ms;
+}
+
+.auth-btn {
+    width: 300px;
 }

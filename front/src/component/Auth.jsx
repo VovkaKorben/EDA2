@@ -6,6 +6,7 @@ import api from '../helpers/api';
 
 import TextInput from './TextInput';
 import '../css/auth.css'
+import '../css/vcl.css'
 const MSG_INIT = { code: 0, message: '' }
 const statusClasses = { 0: 'code-0', 1: 'code-1', 2: 'code-2' };
 
@@ -104,13 +105,13 @@ const Auth = () => {
 
             {/* CURRENT USER INFO */}
             <div className="auth-info fcct">
-                <div className="auth-info-top">
+                <div className="auth-info-top fs-large">
 
                     {user?.isLoading ? (
                         <span>Checking...</span>
                     ) : user ? (
                         <div>Logged as <strong>{user.email}</strong>
-                            <button className='auth-btn' onClick={handleLogout}>logout</button>
+                            <button className='btn auth-btn' onClick={handleLogout}>logout</button>
                         </div>
                     ) : (
                         <span>Not logged in.</span>
@@ -118,12 +119,12 @@ const Auth = () => {
 
                 </div>
                 <div className="auth-info-bottom ">
-                    <Link to="/" className='ani-link'>Back to editor</Link>
+                    <Link to="/" className='ani-link fs-large'>Back to editor</Link>
                 </div>
             </div>
 
             <div className="auth-login fcct">
-                <div>Already registered? Log in here.</div>
+                <div className='fs-large'>Already registered? Log in here.</div>
 
                 <TextInput
                     id='hasEmail'
@@ -137,12 +138,12 @@ const Auth = () => {
                     caption='password'
                     valueChanged={handleInputChanged}
                 />
-                <button className='auth-btn' onClick={handleLogin}>login</button>
+                <button className='btn auth-btn' onClick={handleLogin}>login</button>
                 <AuthMessage data={messages.login} />
 
             </div>
             <div className="auth-register fcct">
-                <div className="auth-block-hdr">New user? Register here!</div>
+                <div className="auth-block-hdr fs-large">New user? Register here!</div>
                 <TextInput
                     id='newEmail'
                     value={values.newEmail ?? ''}
@@ -161,19 +162,19 @@ const Auth = () => {
                     caption='retype password'
                     valueChanged={handleInputChanged}
                 />
-                <button className='auth-btn' onClick={handleRegister}>register</button>
+                <button className='btn auth-btn' onClick={handleRegister}>register</button>
                 {/* <div className='auth-error'>{errors.register}</div > */}
                 <AuthMessage data={messages.register} />
             </div>
             <div className="auth-restore fcct">
-                <div >Forgot password?</div>
+                <div className='fs-large' >Forgot password?</div>
                 <TextInput
                     id='forgotEmail'
                     value={values.forgotEmail ?? ''}
                     caption='e-mail'
                     valueChanged={handleInputChanged}
                 />
-                <button className='auth-btn' onClick={handleForgot}>send restore info</button>
+                <button className='btn auth-btn' onClick={handleForgot}>send restore info</button>
                 {/* <div className='auth-error'>{errors.forgot}</div > */}
                 <AuthMessage data={messages.forgot} />
             </div>

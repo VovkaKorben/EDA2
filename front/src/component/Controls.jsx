@@ -4,16 +4,16 @@ import React from 'react';
 const buttonsCodes = [
 
 
-    { actionId: 1, caption: 'Load', ico: 'open' },
-    { actionId: 5, caption: 'Save', ico: 'save' },
+    { actionId: 2, caption: 'Project', ico: 'project' },
+    //{ actionId: 5, caption: 'Save', ico: 'save' },
 
     { actionId: 20, caption: 'Clear all', ico: 'clear_all' },
     { actionId: 21, caption: 'Clear wires', ico: 'clear_wires' },
 
     { actionId: 3, caption: 'Reset view', ico: 'view' },
     { actionId: 300, caption: 'Route', ico: 'route' },
-    { actionId: 400, caption: 'log wires', ico: '' },
-    { actionId: 410, caption: 'log lib', ico: '' }
+    //{ actionId: 400, caption: 'log wires', ico: '' },
+    //{ actionId: 410, caption: 'log lib', ico: '' }
 ]
 
 const ControlButton = ({ text, onClick, ico }) => {

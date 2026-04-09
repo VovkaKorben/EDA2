@@ -131,8 +131,8 @@ const SchemaCanvas = forwardRef(({
 
 
     // debug
-    const [mousePos, setMousePos] = useState([0, 0])
-    const [parrotsPos, setParrotsPos] = useState([0, 0])
+    //const [mousePos, setMousePos] = useState([0, 0])
+    // const [parrotsPos, setParrotsPos] = useState([0, 0])
 
 
 
@@ -586,7 +586,7 @@ const SchemaCanvas = forwardRef(({
                     DrawColor.SELECTED : DrawColor.NORMAL;
                 drawWire(ctx, wire.path, 1, drawColor, parrotsToScreen);
 
-// wires names for debug
+                // wires names for debug
                 if (wireNames) {
                     for (let i = 0; i < wire.path.length - 1; i++) {
                         const p1 = wire.path[i];
@@ -827,7 +827,8 @@ const SchemaCanvas = forwardRef(({
                     if (dragMode.current === DragModeType.NONE) {
                         switch (selectedRef.current.type) {
                             case ObjectType.ELEMENT:
-                                selectedChanged({ type: ObjectType.NONE });
+                            hoveredChanged ({ type: ObjectType.NONE })   
+                            selectedChanged({ type: ObjectType.NONE })
                                 onElemDeleted(selectedRef.current.elementId);
                                 break;
                             case ObjectType.WIRE:
@@ -853,7 +854,7 @@ const SchemaCanvas = forwardRef(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onElemChanged, onElemDeleted, selectedChanged, deleteWire, zoomFit]);
+    }, [hoveredChanged,onElemChanged, onElemDeleted, selectedChanged, deleteWire, zoomFit]);
 
 
     // WHEEL -------------------------------------------------------------------
@@ -1007,11 +1008,11 @@ const SchemaCanvas = forwardRef(({
         //if(dragMode.current === DragModeType.NONE) { return;        }
 
         // DEBUG
-        const canvasRect = canvasRef.current.getBoundingClientRect();
+        // const canvasRect = canvasRef.current.getBoundingClientRect();
 
         // DBG
-        setMousePos([e.clientX - canvasRect.left, e.clientY - canvasRect.top]);
-        setParrotsPos(roundPoint(parrots));
+        // setMousePos([e.clientX - canvasRect.left, e.clientY - canvasRect.top]);
+        // setParrotsPos(roundPoint(parrots));
         // DEBUG END
 
 
@@ -1058,14 +1059,14 @@ const SchemaCanvas = forwardRef(({
 
     return (
         <React.Fragment>
-            <div className='dbg-fixed'>
+            {/*  <div className='dbg-fixed'>
                 {`zIdx:${view.zoomIndex} zVal:${view.zoom}`}                <br />
                 {`V: ${_toFixed(view.pos)}`} <br />
 
                 {`Mouse: ${_toFixed(mousePos, 0)}`} <br />
                 {`Parrots: ${_toFixed(parrotsPos, 0)}`}
             </div>
-            {/* hovered: {prettify(hovered, 0)} */}
+             hovered: {prettify(hovered, 0)} */}
             <canvas
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
