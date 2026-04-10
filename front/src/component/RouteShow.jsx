@@ -11,7 +11,7 @@ import {
 } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
-const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 16, 32, 50, 75, 100, 200];
+const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8,12, 16, 32, 50, 75, 100, 200];
 const defaultZoom = 10
 const pixInMm = 96 / 25.4
 const pcbMargin = 1
@@ -200,15 +200,17 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
 
                 routeData.elements.forEach(elem => {
-                    let anchor = rotate(elem.anchor, elem.rotateIndex)
+                    // let anchor = rotate(elem.anchor, elem.rotateIndex)
 
 
-                    anchor = multiply(anchor, zoom)
+                    let anchor = multiply(elem.anchor, zoom)
                     anchor = add(anchor, startPt)
                     anchor = adjustPoint(anchor)
                     ctx.save()
+
                     try {
                         ctx.translate(...anchor)
+                        ctx.rotate(elem.rotateIndex * Math.PI / 2);
                         elem.turtle.forEach(prim => {
                             // console.log(prim)
                             drawTurtle(ctx, prim, zoom)

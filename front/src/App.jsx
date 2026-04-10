@@ -46,7 +46,7 @@ function App() {
 
     const [hovered, setHovered] = useState({ type: ObjectType.NONE });
     const [selected, setSelected] = useState({ type: ObjectType.NONE });
-    const [showRoute, setShowRoute] = useState(false);
+    const [showRoute, setShowRoute] = useState(true);
     const refSchemaCanvas = useRef(null);
     const [libElements, setLibElements] = useState([]);
     const isDirty = useRef(false);
