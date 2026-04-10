@@ -337,7 +337,7 @@ export const LoadElems = async (elems, errors) => {
                 for (let rotateIndex = 0; rotateIndex < 4; rotateIndex++) {
 
                     bounds[rotateIndex] = rotate(rawBounds, rotateIndex);
-
+                    bounds[rotateIndex] = normalize(bounds[rotateIndex])
 
                     // rotate pins
                     for (let [pinName, pinCoords] of Object.entries(rawPins)) {

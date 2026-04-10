@@ -246,6 +246,7 @@ const SchemaCanvas = forwardRef(({
         }
         return null;
     }, [libElements, schemaElements]);
+    
     const findElemAt = useCallback((checkPoint) => {
         for (const elem of Object.values(schemaElements.elements)) {
             const libElement = libElements[elem.typeId];
