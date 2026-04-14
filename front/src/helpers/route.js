@@ -8,7 +8,8 @@ import {
     round, roundPoint, normalize,
     add, isPointEqual,
     getRectWidth,
-    getRectHeight
+    getRectHeight,
+    multiply
 } from './geo.js';
 import { Rect } from './rect.js';
 import { API_URL, ErrorCodes, ObjectType } from './utils.js';
@@ -17,8 +18,123 @@ import { routePcb } from './pcbAStar.js';
 
 // import { preparePcbAStar } from './pcbRoute.js';
 
-export const PCB_UNIT = 25.4 / 40; // inch/20 = 50mil
+export const PCB_UNIT = 25.4 / 150;
 const E = 0.001;
+const packRects5 = (inputRects) => {
+    // Фиксируем исходные размеры, так как геттеры в Rect зависят от l/r
+    const items = inputRects.map(r => ({
+        obj: r,
+        w: r.r - r.l,
+        h: r.b - r.t
+    }));
+
+    // Сортировка по длинной стороне (традиционно для плотной упаковки)
+    items.sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h));
+
+    let binW = 0;
+    let binH = 0;
+    let freeRects = [];
+    const packedRects = [];
+    const E = 0.001;
+
+    // Вспомогательная функция для вставки нового свободного ректа с проверкой на поглощение
+    const addFreeRect = (rect) => {
+        if (rect.w <= E || rect.h <= E) return;
+        // Если новая область уже внутри существующей — игнорируем
+        for (let i = 0; i < freeRects.length; i++) {
+            if (rect.inRect(freeRects[i])) return;
+        }
+        // Удаляем те, что теперь оказались внутри новой
+        freeRects = freeRects.filter(f => !f.inRect(rect));
+        freeRects.push(rect);
+    };
+
+    for (const item of items) {
+        let bestIdx = -1;
+        let minShortSide = Infinity;
+        let rotated = false;
+
+        // 1. Поиск лучшего места (Best Short Side Fit)
+        for (let i = 0; i < freeRects.length; i++) {
+            const f = freeRects[i];
+            // Без поворота
+            if (f.w >= item.w - E && f.h >= item.h - E) {
+                const ss = Math.min(f.w - item.w, f.h - item.h);
+                if (ss < minShortSide) { minShortSide = ss; bestIdx = i; rotated = false; }
+            }
+            // С поворотом
+            if (f.w >= item.h - E && f.h >= item.w - E) {
+                const ss = Math.min(f.w - item.h, f.h - item.w);
+                if (ss < minShortSide) { minShortSide = ss; bestIdx = i; rotated = true; }
+            }
+        }
+
+        // 2. Расширение (если не влезло)
+        if (bestIdx === -1) {
+            const canGrowRight = (binW <= binH);
+            const w = rotated ? item.h : item.w;
+            const h = rotated ? item.w : item.h;
+
+            if (canGrowRight) {
+                const growW = Math.max(item.w, item.h); // запас под поворот
+                const newArea = new Rect(binW, 0, binW + growW, Math.max(binH, growW));
+                // Добавляем новую полосу и объединяем с потенциальными дырами
+                addFreeRect(newArea);
+                binW += growW;
+                binH = Math.max(binH, growW);
+            } else {
+                const growH = Math.max(item.w, item.h);
+                const newArea = new Rect(0, binH, Math.max(binW, growH), binH + growH);
+                addFreeRect(newArea);
+                binH += growH;
+                binW = Math.max(binW, growH);
+            }
+            
+            // Повторный поиск после расширения
+            return packRects(inputRects); 
+        }
+
+        // 3. Размещение
+        const f = freeRects[bestIdx];
+        const w = rotated ? item.h : item.w;
+        const h = rotated ? item.w : item.h;
+
+        const rect = item.obj;
+        rect.l = f.l;
+        rect.t = f.t;
+        rect.r = rect.l + w;
+        rect.b = rect.t + h;
+        rect.rotateIndex = rotated ? 1 : 0;
+        packedRects.push(rect);
+
+        // 4. Расщепление ВСЕХ пересекающихся свободных прямоугольников
+        const nextFree = [];
+        const placed = new Rect(rect.l, rect.t, rect.r, rect.b);
+
+        for (const free of freeRects) {
+            if (!free.intersects(placed)) {
+                nextFree.push(free);
+                continue;
+            }
+            // Делим на 4 части
+            if (placed.t > free.t) nextFree.push(new Rect(free.l, free.t, free.r, placed.t));
+            if (placed.b < free.b) nextFree.push(new Rect(free.l, placed.b, free.r, free.b));
+            if (placed.l > free.l) nextFree.push(new Rect(free.l, free.t, placed.l, free.b));
+            if (placed.r < free.r) nextFree.push(new Rect(placed.r, free.t, free.r, free.b));
+        }
+        
+        // Очистка списка (удаление дубликатов и вложенных)
+        freeRects = [];
+        nextFree.forEach(addFreeRect);
+    }
+
+    // Подрезаем итоговые габариты до реально занятых
+    binW = Math.max(...packedRects.map(r => r.r), 0);
+    binH = Math.max(...packedRects.map(r => r.b), 0);
+
+    return { binW, binH, rects: packedRects };
+};
+
 const packRects = (inputRects) => {
     let binW = 0;
     let binH = 0;
@@ -283,9 +399,14 @@ const convertPackage = (pkg) => {
 
 
         // extract coords from strings
-        const turtle = parseTurtle(pkg.turtle, PCB_UNIT);
-        const pins = pinsToPoints(pkg.pins);
+        const turtle = parseTurtle(pkg.turtle);
+        // console.log(prettify(pkg, 3))
+        // console.log(prettify(turtle, 3))
         const textPos = stringToCoords(pkg.textPos);
+
+
+
+        let pins = pinsToPoints(pkg.pins);
         // console.log(pkg);
 
         // calculate turtle bounds
@@ -304,8 +425,20 @@ const convertPackage = (pkg) => {
         // expand bound with pins
         Object.values(pins).forEach(pin => bounds = union(bounds, pin));
 
-        // snap bounds to grid
-        bounds = snapRectFloat(bounds, PCB_UNIT);
+
+        // convert pin coords to PARROTS
+        for (const pinName in pins) {
+            pins[pinName] = divide(pins[pinName], PCB_UNIT)
+
+        }
+        // snap bounds to grid, convert to parrots and inflate by 1
+        bounds = [
+            Math.floor(bounds[0] / PCB_UNIT),
+            Math.floor(bounds[1] / PCB_UNIT),
+            Math.ceil(bounds[2] / PCB_UNIT),
+            Math.ceil(bounds[3] / PCB_UNIT)
+        ]
+        bounds = expand(bounds, 1)
 
 
         const result = {
@@ -419,7 +552,7 @@ const calculateNetworks = (wires) => {
 }
 
 
-const calcNetworkPins = (nets, pins) => {
+const calcNetworkPins = (nets, pins, elements) => {
     const result = []
     for (const net of nets) {
         const collect = []
@@ -427,8 +560,9 @@ const calcNetworkPins = (nets, pins) => {
 
             const elemPin = pins.find(p => p.elementId === pin.elementId && p.pinName === pin.pinIdx)
             let pos = elemPin.pinPos
+
             pos = rotate(pos, elemPin.rotateIndex)
-            pos = add(pos, elemPin.anchor)
+            pos = add(pos, elements[elemPin.elementId].anchor)
             collect.push(pos)
         }
         result.push(collect)
@@ -466,31 +600,26 @@ export const doRoute = async (data) => {
             }
         }
 
-        // create Rect-array from used element-packages (pack rect algoritm uses Rect structures)
+        // create Rect-array from used element-packages (packing rectangle algoritm uses Rect structures)
         const packagesRects = [];
         for (const elem of Object.values(data.schemaElements.elements)) {
             const packageId = elem.packageId;
+            const elementId = elem.elementId;
 
-            const t1 = divide(packagesData[packageId].bounds,PCB_UNIT)
-            const x1 = getRectWidth(t1)
-            const y1 = getRectHeight(t1)
-console.log(packagesData[packageId].name ,packagesData[packageId].bounds,t1,x1,y1 )
-
-
+            // add rect
             const pkgRect = new Rect(...packagesData[packageId].bounds);
-            
-            pkgRect.elementId = elem.elementId;
-
+            pkgRect.elementId = elementId;
             packagesRects.push(pkgRect);
         }
 
         // pack rects on the PCB
+        console.log(prettify(packagesRects,1))
         const packResult = packRects(packagesRects);
-
+        console.log(prettify(packResult,2))
 
 
         // convert packed rects to draw-ready structure
-        const elements = []
+        const elements = {}
         const pins = []
         for (const elem of Object.values(data.schemaElements.elements)) {
             const lib = data.libElements[elem.typeId]
@@ -511,7 +640,7 @@ console.log(packagesData[packageId].name ,packagesData[packageId].bounds,t1,x1,y
 
             // get real element placing
             packedRect = packedRect.toArray()
-            packedRect = round(divide(packedRect, PCB_UNIT))
+            //packedRect = round(divide(packedRect, PCB_UNIT))
 
             // get physical package
             const pkg = packagesData[elem.packageId]
@@ -523,7 +652,7 @@ console.log(packagesData[packageId].name ,packagesData[packageId].bounds,t1,x1,y
 
             // element bounds
             let packageBounds = [...pkg.bounds]
-            packageBounds = round(divide(packageBounds, PCB_UNIT))
+            // packageBounds = round(divide(packageBounds, PCB_UNIT))
             const rotatedPackageBounds = rotate(packageBounds, rotateIndex)
 
 
@@ -532,46 +661,46 @@ console.log(packagesData[packageId].name ,packagesData[packageId].bounds,t1,x1,y
 
             for (const [pinName, pinCoords] of Object.entries(pkg.pins)) {
 
-                let pinPos = divide(pinCoords, PCB_UNIT)
+                //  let pinPos = divide(pinCoords, PCB_UNIT)
                 const pin = {
                     elementId: elemId,
                     pinName: pinName,
-                    anchor: anchor,
-                    pinPos: pinPos,
+                    // anchor: anchor,
+                    pinPos: pinCoords,
                     rotateIndex: rotateIndex
                 }
                 pins.push(pin);
             }
 
-            const textPos = divide(pkg.textPos, PCB_UNIT)
+            // const textPos = divide(pkg.textPos, PCB_UNIT)
 
             const text = `${lib.abbr}${elem.typeIndex}`
-            elements.push({
+            elements[elemId] = {
                 elementId: elemId,
                 packageId: pkg.packageId,
                 packageName: pkg.name,
                 turtle: pkg.turtle,
-                textPos: textPos,
+                textPos: pkg.textPos,
                 text: text,
                 anchor: anchor,
                 rotateIndex: rotateIndex,
                 packageBounds: packageBounds
-            });
+            }
         }
 
         // prepare pins coords for A*
         let pcbSize = [packResult.binW, packResult.binH]
-        pcbSize = divide(pcbSize, PCB_UNIT)
-        pcbSize = roundPoint(pcbSize)
+        //pcbSize = divide(pcbSize, PCB_UNIT)        pcbSize = roundPoint(pcbSize)
         const pcbSizeNodes = add(pcbSize, [1, 1]) // convert size to nodes
 
 
         const pinsInNetworks = calculateNetworks(data.schemaElements.wires)
-        const posInNetworks = calcNetworkPins(pinsInNetworks, pins)
+        const posInNetworks = calcNetworkPins(pinsInNetworks, pins, elements)
 
         const allPinCoords = pins.map(p => {
-            let pos = rotate(p.pinPos, p.rotateIndex);
-            return roundPoint(add(pos, p.anchor));
+            let pos = rotate(p.pinPos, p.rotateIndex)
+            pos = add(pos, elements[p.elementId].anchor);
+            return pos
         });
 
 

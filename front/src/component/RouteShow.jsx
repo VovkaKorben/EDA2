@@ -11,7 +11,7 @@ import {
 } from '../helpers/geo.js';
 import '../css/route.css'
 // import { Rect, Point } from '../helpers/rect.js';
-const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8,12, 16, 32, 50, 75, 100, 200];
+const zoomLevels = [0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 8, 12, 16, 32, 50, 75, 100, 200];
 const defaultZoom = 10
 const pixInMm = 96 / 25.4
 const pcbMargin = 1
@@ -170,7 +170,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                     for (let y = 0; y <= routeData.pcbSize[1]; y++)
                         for (let x = 0; x <= routeData.pcbSize[0]; x++) {
 
-                            let pt = multiply([x, y], zoom)
+                            let pt = multiply([x, y], zoomUnits)
                             pt = add(pt, startPt)
                             pt = adjustPoint(pt)
                             let s = add(pt, [-sz / 2, 0])
@@ -193,128 +193,106 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 }
             }
             const drawElements = () => {//
-
                 // elements
                 ctx.strokeStyle = pcbColor.SILK
-
-
-
-                routeData.elements.forEach(elem => {
+                Object.values(routeData.elements).forEach(elem => {
                     // let anchor = rotate(elem.anchor, elem.rotateIndex)
-
-
-                    let anchor = multiply(elem.anchor, zoom)
+                    let anchor = multiply(elem.anchor, zoomUnits)
                     anchor = add(anchor, startPt)
                     anchor = adjustPoint(anchor)
                     ctx.save()
 
                     try {
                         ctx.translate(...anchor)
-                        ctx.rotate(elem.rotateIndex * Math.PI / 2);
+                        ctx.rotate(elem.rotateIndex * Math.PI / 2)
                         elem.turtle.forEach(prim => {
-                            // console.log(prim)
-                            drawTurtle(ctx, prim, zoom)
+                            drawTurtle(ctx, prim, zoomMm)
                         })
-                        // drawCross({ pos: [0, 0], size: 20, color: '#f00', width: 1 })
-
-                        // 
                     } finally { ctx.restore() }
-
-
                 })
-
-
-
-
-
             }
+
             const drawText = () => {//
                 const textHeight1 = 3 * view.zoomValue;
-                const textHeight2 = 1.2 * view.zoomValue;
-                const lineHeight = 1.6 * view.zoomValue;
-
-                // console.log('text height: ', textHeight)
                 ctx.save()
                 try {
-
-                    // ctx.scale(3.78, 3.78);
-
                     ctx.fillStyle = 'black';
                     ctx.textAlign = 'center'
                     ctx.textBaseline = 'middle'
                     const fontName = fontsLoaded ? '"pcb"' : 'sans-serif';
-                    routeData.elements.forEach(elem => {
+                    Object.values(routeData.elements).forEach(elem => {
 
                         let textPos = rotate(elem.textPos, elem.rotateIndex)
-                        textPos = add(textPos, elem.anchor)
+                        textPos = divide(textPos, PCB_UNIT);
+                        textPos = add(textPos, elem.anchor);
 
-                        textPos = multiply(textPos, zoom)
-                        textPos = add(textPos, startPt)
-                        textPos = adjustPoint(textPos)
+                        textPos = multiply(textPos, zoomUnits);
+                        textPos = add(textPos, startPt);
+                        textPos = adjustPoint(textPos);
+
                         ctx.font = `${textHeight1}px ${fontName}`;
                         ctx.fillText(elem.text, ...textPos);
-
-                        /* textPos = add(textPos, [0, lineHeight])
-                         textPos = adjustPoint(textPos)
-                         ctx.font = `${textHeight2}px ${fontName}`;
-                         ctx.fillText(elem.packageName, ...textPos);
- */
-
-
-
-
-
                     });
                 }
                 finally {
                     ctx.restore();
                 }
-
-
             }
 
 
+
             const drawDrills = () => {
-                ctx.fillStyle = pcbColor.DRILL
+                // Выбираем контрастный цвет для каёмки (темный, но не обязательно черный)
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 1;
+
                 routeData.pins.forEach(pin => {
-                    let { pinPos, anchor, rotateIndex } = pin
+                    let { pinPos, rotateIndex, elementId } = pin;
 
-                    // calculate pin position in parrots
-                    pinPos = rotate(pinPos, rotateIndex)
-                    pinPos = add(pinPos, anchor)
+                    // Достаем родителя из словаря для получения якоря
+                    const elem = routeData.elements[elementId];
+                    if (!elem) return;
 
-                    // calculate parrots to screen
-                    pinPos = multiply(pinPos, zoom)
-                    pinPos = add(pinPos, startPt)
-                    pinPos = adjustPoint(pinPos)
+                    // 1. Считаем позицию (попугаи -> экран)
+                    let pos = rotate(pinPos, rotateIndex);
+                    pos = add(pos, elem.anchor);
+                    pos = multiply(pos, zoomUnits);
+                    pos = add(pos, startPt);
+                    pos = adjustPoint(pos);
 
-                    // draw two circles
-                    ctx.beginPath()
+                    // Определяем радиус "дырки" (обычно чуть меньше площадки)
+                    const radius = Math.max(zoomUnits / 6, 1.5);
 
-                    ctx.arc(...pinPos, zoom / 9, 0, 2 * Math.PI)
-                    ctx.fill()
-                })
+                    // 2. Рисуем белый "стикер"
+                    ctx.beginPath();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.arc(...pos, radius, 0, 2 * Math.PI);
+                    ctx.fill();
 
+                    // 3. Рисуем темную каёмку
+                    ctx.stroke();
+                });
             }
 
             const drawPins = () => {
 
                 routeData.pins.forEach(pin => {
-                    let { pinPos, anchor, rotateIndex } = pin
+                    let { pinPos, rotateIndex, elementId } = pin
 
+                    const elem = routeData.elements[elementId]
                     // calculate pin position in parrots
                     pinPos = rotate(pinPos, rotateIndex)
-                    pinPos = add(pinPos, anchor)
+                    pinPos = add(pinPos, elem.anchor)
 
                     // calculate parrots to screen
-                    pinPos = multiply(pinPos, zoom)
+                    pinPos = multiply(pinPos, zoomUnits)
                     pinPos = add(pinPos, startPt)
                     pinPos = adjustPoint(pinPos)
 
                     // draw two circles
                     ctx.beginPath()
                     ctx.fillStyle = pcbColor.COPPER
-                    ctx.arc(...pinPos, zoom / 3, 0, 2 * Math.PI)
+                    ctx.arc(...pinPos, zoomUnits / 3, 0, 2 * Math.PI)
                     ctx.fill()
 
                 })
@@ -326,7 +304,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 ctx.save()
                 try {
                     ctx.beginPath()
-                    ctx.lineWidth = zoom / 3;
+                    ctx.lineWidth = zoomUnits / 3;
                     // each network
                     Object.values(routeData.copper).forEach(net => {
 
@@ -335,7 +313,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
                             // each point in segment
                             segment.forEach((pt, ptIndex) => {
-                                let drawPt = multiply(pt, zoom)
+                                let drawPt = multiply(pt, zoomUnits)
                                 drawPt = add(drawPt, startPt)
                                 drawPt = adjustPoint(drawPt)
                                 if (ptIndex === 0) {
@@ -378,7 +356,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 let marginedSize = add(routeData.pcbSize, pcbMargin * 2)
                 const pcbRect = [0, 0, ...marginedSize]
                 let pcbBoundRect = sub(pcbRect, view.pos)
-                pcbBoundRect = multiply(pcbBoundRect, zoom)
+                pcbBoundRect = multiply(pcbBoundRect, zoomUnits)
                 pcbBoundRect = adjustRect(pcbBoundRect);
 
                 ctx.fillStyle = pcbColor.PCB_FILL
@@ -394,22 +372,22 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 try {
                     ctx.strokeStyle = 'rgb(255, 0, 0)'
                     ctx.setLineDash([10, 3]);
-                    routeData.elements.forEach(elem => {
+                    Object.values(routeData.elements).forEach(elem => {
                         // console.log(elem.text, prettify(elem.packageBounds, 0))
                         ctx.save()
                         try {
 
 
                             let translatePoint = [...elem.anchor]
-                            translatePoint = multiply(translatePoint, zoom)
+                            translatePoint = multiply(translatePoint, zoomUnits)
                             translatePoint = add(translatePoint, startPt)
                             translatePoint = adjustPoint(translatePoint)
                             ctx.translate(...translatePoint)
-
+                            ctx.rotate(elem.rotateIndex * Math.PI / 2);
 
 
                             let bounds = [...elem.packageBounds]
-                            bounds = multiply(bounds, zoom)
+                            bounds = multiply(bounds, zoomUnits)
 
                             bounds[2] = Math.round(bounds[2] - bounds[0])
                             bounds[3] = Math.round(bounds[3] - bounds[1])
@@ -444,23 +422,28 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
 
 
-            const zoom = PCB_UNIT * view.zoomValue
+            const zoomUnits = PCB_UNIT * view.zoomValue
+            const zoomMm = view.zoomValue
             let startPt = multiply(view.pos, -1)
             startPt = add(startPt, pcbMargin)
-            startPt = multiply(startPt, zoom)
+            startPt = multiply(startPt, zoomUnits)
 
             // prepare layers visibility
             const layerVisible = {}
             Object.keys(LayerTypes).forEach(l => layerVisible[l] = Object.hasOwn(layers, l) ? layers[l] : true)
 
+
             // draw PCB bound
             if (layerVisible.BOUND) drawPcbBound()
             if (layerVisible.GRID) drawDebugGrid()
+
             if (layerVisible.COPPER) {
                 drawCopper()
                 drawPins()
             }
-            if (layerVisible.DRILLING) drawDrills()
+            if (layerVisible.DRILLING)
+                drawDrills()
+
             if (layerVisible.ELEMENTS) {
                 drawElementsBound()
             }
@@ -489,7 +472,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
             try {
                 const result = await doRoute({ libElements, schemaElements });
-                console.log(prettify(result, 2))
+                // console.log(prettify(result, 2))
 
 
                 const errors = [...result.errors]

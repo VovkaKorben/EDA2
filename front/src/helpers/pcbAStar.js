@@ -224,11 +224,29 @@ export const doPcbAStar = (grid, start, netIndex) => {
 
         for (const neighbor of neighbors) {
             const neighborCoord = toGrid(neighbor, grid.w);
-
-            // Внутри цикла соседей:
             const isDiagonal = (neighborCoord[0] !== currentCoord[0] && neighborCoord[1] !== currentCoord[1]);
             const stepDistance = isDiagonal ? 1.414 : 1.0;
             const weight = grid.pcb[neighbor] === netIndex ? 0 : stepDistance;
+
+            // --- НОВЫЙ БЛОК: Штраф за близость (Clearance) ---
+            let proximityPenalty = 0;
+            // Проверяем 8 соседних клеток вокруг точки, в которую хотим шагнуть
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = neighborCoord[0] + dx;
+                    const ny = neighborCoord[1] + dy;
+
+                    if (nx >= 0 && nx < grid.w && ny >= 0 && ny < grid.h) {
+                        const val = grid.pcb[ny * grid.w + nx];
+                        // Если рядом чужая медь или пин (не 0 и не наша сеть)
+                        if (val !== 0 && val !== netIndex) {
+                            proximityPenalty += 1.2; // Сила "отталкивания"
+                        }
+                    }
+                }
+            }
+            // -------------------------------------------------
 
             let turnPenalty = 0;
             const parentFlat = cameFrom[currentFlatIndex];
@@ -259,9 +277,9 @@ export const doPcbAStar = (grid, start, netIndex) => {
                     }
                 }
             }
-
-            let tentative_gScore = gScore[currentFlatIndex] + weight + turnPenalty;
-
+            // -------------------------------------------------
+            let tentative_gScore = gScore[currentFlatIndex] + weight + turnPenalty// + proximityPenalty
+            // -------------------------------------------------
             if (tentative_gScore < gScore[neighbor]) {
                 cameFrom[neighbor] = currentFlatIndex;
                 gScore[neighbor] = tentative_gScore;
@@ -281,7 +299,7 @@ export const doPcbAStar = (grid, start, netIndex) => {
 }
 
 
-export const routePcb = (pcbSize, nets,allPins) => {
+export const routePcb = (pcbSize, nets, allPins) => {
     const resultErrors = []
     let data = null
     try {
@@ -290,7 +308,7 @@ export const routePcb = (pcbSize, nets,allPins) => {
         const sortedNets = sortNets(nets)
 
         // init A*
-        const grid = preparePcbAStar(pcbSize, sortedNets,allPins)
+        const grid = preparePcbAStar(pcbSize, sortedNets, allPins)
         /*
         ставим первый пин в сетку
         и к меди тянем от 2(сейчас это только 1 пин)

@@ -31,7 +31,7 @@ export const pcbColor = Object.freeze({
     DEBUG: '#00000035',
     ELEM: '#f00f',
     BLUE: '#0000ff44',
-    DRILL: '#f50'
+    DRILL: '#009'
 });
 
 export const ErrorCodes = Object.freeze({

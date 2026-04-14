@@ -388,6 +388,7 @@ export const LoadElems = async (elems, errors) => {
         result.data.forEach((phys) => {
 
             // parse turtle
+            /*
             const rawPrimitives = [];
             let trimTurtle = phys.turtle;
             if (trimTurtle) {
@@ -404,6 +405,7 @@ export const LoadElems = async (elems, errors) => {
                 }
 
             }
+                */
 
 
 
