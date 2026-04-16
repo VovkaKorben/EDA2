@@ -16,6 +16,8 @@ const DIR_DIAG = [
 const DIR_STRAIGHT = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 const toGrid = (flatIndex, w) => [flatIndex % w, (flatIndex / w) | 0]
 const toFlat = (gridCoord, w) => gridCoord[1] * w + gridCoord[0]
+
+// sort pins by distance increasing (for net)
 const sortNet = (net) => {
     const sorted = []
     const remains = [...net]
@@ -40,13 +42,15 @@ const sortNet = (net) => {
     }
     return sorted;
 }
+
+// sort pins by distance increasing
 const sortNets = (nets) => {
     const sortedNets = {}
 
-    nets.forEach((net, netIndex) => {
-        const sortedNet = sortNet(net)
-        sortedNets[netIndex + 1] = sortedNet
-    })
+    for (const [netIndex,netPins] of Object.entries(nets))  {
+        const sortedNet = sortNet(netPins)
+        sortedNets[netIndex ] = sortedNet
+    }
     return sortedNets
 
 }
@@ -83,7 +87,7 @@ const octileDistance = (pt1, pt2) => {
     const F = Math.sqrt(2) - 1;
     return (dx < dy) ? F * dx + dy : F * dy + dx;
 }
-export const preparePcbAStar = (bounds, nets, allPins) => {
+export const preparePcbAStar = (bounds, nets,allPins) => {
     const grid = {};
 
     // add margins to global bound
@@ -99,11 +103,11 @@ export const preparePcbAStar = (bounds, nets, allPins) => {
     grid.nets = {}
     grid.draw = {}
     // fill initial pins
-    for (const [netIndex, net] of Object.entries(nets)) {
-        grid.nets[netIndex] = [net[0]]
+    for (const [netIndex, netPins] of Object.entries(nets)) {
+        grid.nets[netIndex] = [netPins[0]]
 
         // set all pins a taken
-        net.forEach(pinPos => {
+        netPins.forEach(pinPos => {
             const flatIndex = toFlat(pinPos, grid.w);
             grid.pcb[flatIndex] = netIndex;
         });
@@ -299,7 +303,7 @@ export const doPcbAStar = (grid, start, netIndex) => {
 }
 
 
-export const routePcb = (pcbSize, nets, allPins) => {
+export const routePcb = (pcbSize, nets,allPins) => {
     const resultErrors = []
     let data = null
     try {
@@ -308,7 +312,7 @@ export const routePcb = (pcbSize, nets, allPins) => {
         const sortedNets = sortNets(nets)
 
         // init A*
-        const grid = preparePcbAStar(pcbSize, sortedNets, allPins)
+        const grid = preparePcbAStar(pcbSize, sortedNets,allPins)
         /*
         ставим первый пин в сетку
         и к меди тянем от 2(сейчас это только 1 пин)
@@ -316,6 +320,7 @@ export const routePcb = (pcbSize, nets, allPins) => {
         дальше тянем от 3 уже к этой меди и тд
         */
         let stopped = false
+        let errorData;
         for (let netIndex = 1; netIndex <= Object.keys(sortedNets).length; netIndex++) {
 
             for (let pinIndex = 1; pinIndex < sortedNets[netIndex].length; pinIndex++) {
@@ -323,6 +328,10 @@ export const routePcb = (pcbSize, nets, allPins) => {
                 const pinPos = sortedNets[netIndex][pinIndex]
                 const route = doPcbAStar(grid, pinPos, netIndex)
                 if (!route) {
+                    errorData = {
+                        pinIndex: pinIndex,
+                        netIndex: netIndex
+                    }
                     stopped = true
                     break
                 }
@@ -350,7 +359,7 @@ export const routePcb = (pcbSize, nets, allPins) => {
 
 
         if (stopped) {
-            resultErrors.push({ code: ErrorCodes.ERROR, message: 'routePcb: route failed' })
+            resultErrors.push({ code: ErrorCodes.ERROR, message: 'routePcb: route failed', errorData: errorData })
         }
         data = grid.draw
 

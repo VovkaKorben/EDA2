@@ -1,0 +1,20 @@
+{
+    "binW": 237,
+    "binH": 234,
+    "rects": [
+        { "l": 0, "t": 0, "r": 128, "b": 128, "elementId": 3, "rotateIndex": 0 },
+        { "l": 0, "t": 128, "r": 90, "b": 204, "elementId": 0, "rotateIndex": 1 },
+        { "l": 128, "t": 0, "r": 204, "b": 90, "elementId": 5, "rotateIndex": 0 },
+        { "l": 90, "t": 128, "r": 161, "b": 204, "elementId": 11, "rotateIndex": 0 },
+        { "l": 161, "t": 128, "r": 211, "b": 184, "elementId": 8, "rotateIndex": 0 },
+        { "l": 161, "t": 184, "r": 217, "b": 234, "elementId": 9, "rotateIndex": 1 },
+        { "l": 204, "t": 0, "r": 235, "b": 70, "elementId": 12, "rotateIndex": 1 },
+        { "l": 128, "t": 90, "r": 172, "b": 123, "elementId": 1, "rotateIndex": 1 },
+        { "l": 0, "t": 204, "r": 62, "b": 224, "elementId": 10, "rotateIndex": 0 },
+        { "l": 90, "t": 204, "r": 138, "b": 224, "elementId": 2, "rotateIndex": 0 },
+        { "l": 172, "t": 90, "r": 220, "b": 110, "elementId": 4, "rotateIndex": 0 },
+        { "l": 211, "t": 128, "r": 231, "b": 176, "elementId": 6, "rotateIndex": 1 },
+        { "l": 217, "t": 184, "r": 237, "b": 232, "elementId": 13, "rotateIndex": 1 },
+        { "l": 62, "t": 204, "r": 72, "b": 234, "elementId": 7, "rotateIndex": 0 }
+    ]
+}

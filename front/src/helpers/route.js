@@ -11,332 +11,121 @@ import {
     getRectHeight,
     multiply
 } from './geo.js';
-import { Rect } from './rect.js';
+import { Rect, Point } from './rect.js';
 import { API_URL, ErrorCodes, ObjectType } from './utils.js';
 import { prettify } from './debug.js';
 import { routePcb } from './pcbAStar.js';
 
 // import { preparePcbAStar } from './pcbRoute.js';
 
-export const PCB_UNIT = 25.4 / 150;
+export const PCB_UNIT = 25.4 / 200;
 const E = 0.001;
-const packRects5 = (inputRects) => {
-    // Фиксируем исходные размеры, так как геттеры в Rect зависят от l/r
-    const items = inputRects.map(r => ({
-        obj: r,
-        w: r.r - r.l,
-        h: r.b - r.t
-    }));
-
-    // Сортировка по длинной стороне (традиционно для плотной упаковки)
-    items.sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h));
-
-    let binW = 0;
-    let binH = 0;
-    let freeRects = [];
-    const packedRects = [];
-    const E = 0.001;
-
-    // Вспомогательная функция для вставки нового свободного ректа с проверкой на поглощение
-    const addFreeRect = (rect) => {
-        if (rect.w <= E || rect.h <= E) return;
-        // Если новая область уже внутри существующей — игнорируем
-        for (let i = 0; i < freeRects.length; i++) {
-            if (rect.inRect(freeRects[i])) return;
-        }
-        // Удаляем те, что теперь оказались внутри новой
-        freeRects = freeRects.filter(f => !f.inRect(rect));
-        freeRects.push(rect);
-    };
-
-    for (const item of items) {
-        let bestIdx = -1;
-        let minShortSide = Infinity;
-        let rotated = false;
-
-        // 1. Поиск лучшего места (Best Short Side Fit)
-        for (let i = 0; i < freeRects.length; i++) {
-            const f = freeRects[i];
-            // Без поворота
-            if (f.w >= item.w - E && f.h >= item.h - E) {
-                const ss = Math.min(f.w - item.w, f.h - item.h);
-                if (ss < minShortSide) { minShortSide = ss; bestIdx = i; rotated = false; }
-            }
-            // С поворотом
-            if (f.w >= item.h - E && f.h >= item.w - E) {
-                const ss = Math.min(f.w - item.h, f.h - item.w);
-                if (ss < minShortSide) { minShortSide = ss; bestIdx = i; rotated = true; }
-            }
-        }
-
-        // 2. Расширение (если не влезло)
-        if (bestIdx === -1) {
-            const canGrowRight = (binW <= binH);
-            const w = rotated ? item.h : item.w;
-            const h = rotated ? item.w : item.h;
-
-            if (canGrowRight) {
-                const growW = Math.max(item.w, item.h); // запас под поворот
-                const newArea = new Rect(binW, 0, binW + growW, Math.max(binH, growW));
-                // Добавляем новую полосу и объединяем с потенциальными дырами
-                addFreeRect(newArea);
-                binW += growW;
-                binH = Math.max(binH, growW);
-            } else {
-                const growH = Math.max(item.w, item.h);
-                const newArea = new Rect(0, binH, Math.max(binW, growH), binH + growH);
-                addFreeRect(newArea);
-                binH += growH;
-                binW = Math.max(binW, growH);
-            }
-            
-            // Повторный поиск после расширения
-            return packRects(inputRects); 
-        }
-
-        // 3. Размещение
-        const f = freeRects[bestIdx];
-        const w = rotated ? item.h : item.w;
-        const h = rotated ? item.w : item.h;
-
-        const rect = item.obj;
-        rect.l = f.l;
-        rect.t = f.t;
-        rect.r = rect.l + w;
-        rect.b = rect.t + h;
-        rect.rotateIndex = rotated ? 1 : 0;
-        packedRects.push(rect);
-
-        // 4. Расщепление ВСЕХ пересекающихся свободных прямоугольников
-        const nextFree = [];
-        const placed = new Rect(rect.l, rect.t, rect.r, rect.b);
-
-        for (const free of freeRects) {
-            if (!free.intersects(placed)) {
-                nextFree.push(free);
-                continue;
-            }
-            // Делим на 4 части
-            if (placed.t > free.t) nextFree.push(new Rect(free.l, free.t, free.r, placed.t));
-            if (placed.b < free.b) nextFree.push(new Rect(free.l, placed.b, free.r, free.b));
-            if (placed.l > free.l) nextFree.push(new Rect(free.l, free.t, placed.l, free.b));
-            if (placed.r < free.r) nextFree.push(new Rect(placed.r, free.t, free.r, free.b));
-        }
-        
-        // Очистка списка (удаление дубликатов и вложенных)
-        freeRects = [];
-        nextFree.forEach(addFreeRect);
-    }
-
-    // Подрезаем итоговые габариты до реально занятых
-    binW = Math.max(...packedRects.map(r => r.r), 0);
-    binH = Math.max(...packedRects.map(r => r.b), 0);
-
-    return { binW, binH, rects: packedRects };
-};
 
 const packRects = (inputRects) => {
+    // 1. Подготовка: вычисляем чистые размеры и сортируем по площади (эвристика плотной упаковки)
+    const items = inputRects.map(item => ({
+        w: Math.abs(item.r - item.l),
+        h: Math.abs(item.b - item.t),
+        elementId: item.elementId
+    })).sort((a, b) => (b.w * b.h) - (a.w * a.h));
+
+    const packedRects = [];
     let binW = 0;
     let binH = 0;
-    let freeRects = [];
-    const packedRects = [];
 
-    // place find (BSSF)
-    const findBestFit = (rect, freeRects) => {
+    // Список точек (левых верхних углов), куда можно попробовать приткнуть новую фигуру
+    let candidatePoints = [new Point(0, 0)];
+
+    for (const item of items) {
+        let bestScore = Infinity;
         let bestRect = null;
-        let minShortSideFit = Infinity;
-        let rotated = 0;
+        let bestRotate = 0;
 
-        for (const free of freeRects) {
-            // Проверка без поворота
-            if (geq(free.w, rect.w, E) && geq(free.h, rect.h, E)) {
-                const leftoverW = free.w - rect.w;
-                const leftoverH = free.h - rect.h;
-                const shortSideFit = Math.min(leftoverW, leftoverH);
+        // Проверяем оба варианта поворота (0 и 1)
+        for (let rotate = 0; rotate < 2; rotate++) {
+            const currentW = rotate === 0 ? item.w : item.h;
+            const currentH = rotate === 0 ? item.h : item.w;
 
-                if (shortSideFit < minShortSideFit) {
-                    minShortSideFit = shortSideFit;
-                    bestRect = free;
-                    rotated = 0;
+            for (const pt of candidatePoints) {
+                // Создаем временный Rect в текущей точке
+                const candidate = new Rect(pt.x, pt.y, pt.x + currentW, pt.y + currentH);
+
+                // Координаты должны оставаться целыми
+                candidate.l = Math.floor(candidate.l);
+                candidate.t = Math.floor(candidate.t);
+                candidate.r = Math.floor(candidate.r);
+                candidate.b = Math.floor(candidate.b);
+
+                // 2. Проверка на пересечение с уже упакованными объектами
+                let collision = false;
+                for (const packed of packedRects) {
+                    if (candidate.intersects(packed)) {
+                        collision = true;
+                        break;
+                    }
                 }
-            }
-            // Проверка с поворотом на 90 градусов
-            if (geq(free.w, rect.h, E) && geq(free.h, rect.w, E)) {
-                const leftoverW = free.w - rect.h;
-                const leftoverH = free.h - rect.w;
-                const shortSideFit = Math.min(leftoverW, leftoverH);
 
-                if (shortSideFit < minShortSideFit) {
-                    minShortSideFit = shortSideFit;
-                    bestRect = free;
-                    rotated = 1;
-                }
-            }
-        }
-        return { bestRect, rotated };
-    }
+                if (!collision) {
+                    // Оцениваем, насколько "квадратной" станет корзина
+                    const nextW = Math.max(binW, candidate.r);
+                    const nextH = Math.max(binH, candidate.b);
 
+                    // Ratio Score: чем ближе к 1.0, тем лучше квадрат
+                    const ratio = nextW / nextH;
+                    const squareScore = Math.abs(ratio - 1);
 
-    // РАСШИРЕНИЕ КОНТЕЙНЕРА
-    const expandBin = (rect) => {
-        // const canGrowRight = (binW + rect.w) * Math.max(binH, rect.h);
-        // const canGrowDown = (binH + rect.h) * Math.max(binW, rect.w);
-        // if (canGrowRight < canGrowDown) {
-        if (leq(binW, binH)) {
-            // Добавляем основную свободную область справа
-            const newFreeRight = new Rect(binW, 0, binW + rect.w, Math.max(binH, rect.h));
-            freeRects.push(newFreeRight);
+                    // Area Score: минимальное увеличение площади (вторичный признак)
+                    const areaScore = nextW * nextH;
 
-            // Спасаем угловую зону снизу (если фигура выше текущей корзины)
-            if (rect.h > binH) {
-                const newFreeBottom = new Rect(0, binH, binW, rect.h);
-                freeRects.push(newFreeBottom);
-                stitchFreeRects(newFreeBottom);
-            }
-
-            binW += rect.w;
-            binH = Math.max(binH, rect.h);
-            stitchFreeRects(newFreeRight);
-        } else {
-            // Добавляем основную свободную область снизу
-            const newFreeBottom = new Rect(0, binH, Math.max(binW, rect.w), binH + rect.h);
-            freeRects.push(newFreeBottom);
-
-            // Спасаем угловую зону справа (если фигура шире текущей корзины)
-            if (rect.w > binW) {
-                const newFreeRight = new Rect(binW, 0, rect.w, binH);
-                freeRects.push(newFreeRight);
-                stitchFreeRects(newFreeRight);
-            }
-
-            binH += rect.h;
-            binW = Math.max(binW, rect.w);
-            stitchFreeRects(newFreeBottom);
-        }
-    }
-
-    // ОБНОВЛЕНИЕ СВОБОДНЫХ ОБЛАСТЕЙ
-    const updateFreeRects = (placedRect) => {
-        const newList = [];
-        for (const free of freeRects) {
-            if (free.intersects(placedRect)) {
-                // cut first free into 4 pieces
-
-                if (placedRect.t > free.t) { // top
-                    newList.push(new Rect(free.l, free.t, free.r, placedRect.t));
-                }
-                if (placedRect.b < free.b) { // bottom
-                    newList.push(new Rect(free.l, placedRect.b, free.r, free.b));
-                }
-                if (placedRect.l > free.l) { // left
-                    newList.push(new Rect(free.l, free.t, placedRect.l, free.b));
-                }
-                if (placedRect.r < free.r) { // right
-                    newList.push(new Rect(placedRect.r, free.t, free.r, free.b));
-                }
-            } else {
-                newList.push(free)
-            }
-        }
-        // Удаляем дубликаты и те, что внутри других
-        freeRects = cleanUp(newList)
-    }
-
-    const cleanUp = (list) => {
-        const listLen = list.length;
-        const redundant = new Set();
-        for (let i = 0; i < listLen; i++) {
-            for (let j = 0; j < listLen; j++) {
-                if (i === j) continue;
-                // Если область i полностью поглощена областью j
-                if (list[i].inRect(list[j])) {
-                    // Если они идентичны, выживает та, у которой индекс меньше
-                    if (!list[j].inRect(list[i]) || i > j) {
-                        redundant.add(i);
+                    // Выбираем позицию с лучшей "квадратичностью"
+                    if (squareScore < bestScore || (squareScore === bestScore && areaScore < (binW * binH))) {
+                        bestScore = squareScore;
+                        bestRect = candidate;
+                        bestRotate = rotate;
                     }
                 }
             }
         }
-        return list.filter((r, i) => !redundant.has(i));
-    }
 
+        if (bestRect) {
+            // Присваиваем метаданные
+            bestRect.elementId = item.elementId;
+            bestRect.rotateIndex = bestRotate;
 
-    const stitchFreeRects = (newArea) => {
-        // Перебираем с конца, чтобы безопасно удалять элементы
-        for (let i = freeRects.length - 1; i >= 0; i--) {
-            const current = freeRects[i];
+            packedRects.push(bestRect);
 
-            if (current === newArea) continue;
+            // Обновляем габариты корзины
+            binW = Math.max(binW, bestRect.r);
+            binH = Math.max(binH, bestRect.b);
 
-            // 1. Попытка слияния по горизонтали (если стоят бок о бок)
-            if (floatEqual(current.t, newArea.t) && floatEqual(current.b, newArea.b)) {
-                // Если текущий прямоугольник примыкает СЛЕВА к новому
-                if (floatEqual(current.r, newArea.l)) {
-                    newArea.l = current.l;
-                    freeRects.splice(i, 1);
-                }
-                // Если текущий прямоугольник примыкает СПРАВА к новому
-                else if (floatEqual(newArea.r, current.l)) {
-                    newArea.r = current.r;
-                    freeRects.splice(i, 1);
-                }
-            }
-            // 2. Попытка слияния по вертикали (если стоят друг на друге)
-            else if (floatEqual(current.l, newArea.l) && floatEqual(current.r, newArea.r)) {
-                // Если текущий прямоугольник примыкает СВЕРХУ к новому
-                if (floatEqual(current.b, newArea.t)) {
-                    newArea.t = current.t;
-                    freeRects.splice(i, 1);
-                }
-                // Если текущий прямоугольник примыкает СНИЗУ к новому
-                else if (floatEqual(newArea.b, current.t)) {
-                    newArea.b = current.b;
-                    freeRects.splice(i, 1);
-                }
-            }
+            // 3. Генерируем новые точки вставки на базе углов новой фигуры (рост вправо и вниз)
+            candidatePoints.push(new Point(bestRect.r, bestRect.t));
+            candidatePoints.push(new Point(bestRect.l, bestRect.b));
+            candidatePoints.push(new Point(bestRect.r, 0));
+            candidatePoints.push(new Point(0, bestRect.b));
+
+            // Удаляем дубликаты точек для оптимизации скорости
+            const unique = new Map();
+            candidatePoints.forEach(p => unique.set(`${p.x},${p.y}`, p));
+            candidatePoints = Array.from(unique.values());
         }
     }
 
-    try {
-        // Sort inputRects by Area descending
-        inputRects.sort((a, b) => b.area - a.area);
-
-        for (let rect of inputRects) {
-            // 1. Пытаемся найти место в текущих границах
-            let fit = findBestFit(rect, freeRects);
-
-            // 2. Если место не найдено, расширяем контейнер
-            if (fit.bestRect === null) {
-                expandBin(rect);
-                fit = findBestFit(rect, freeRects);
-            }
-
-            let bestFreeRect = fit.bestRect;
-            rect.rotateIndex = fit.rotated;
-
-            // 3. Размещаем прямоугольник с учетом возможного поворота
-            const finalW = rect.rotateIndex ? rect.h : rect.w;
-            const finalH = rect.rotateIndex ? rect.w : rect.h;
-
-            rect.l = bestFreeRect.l //+ (bestFreeRect.w - finalW) / 2;
-            rect.t = bestFreeRect.t //+ (bestFreeRect.h - finalH) / 2;
-            rect.r = rect.l + finalW;
-            rect.b = rect.t + finalH;
-            packedRects.push(rect);
-
-            // 4. Обновляем список свободных областей (Split & Prune)
-            updateFreeRects(rect);
-        }
-        return {
-            binW: binW,
-            binH: binH,
-            rects: packedRects
-        }
-    } catch (e) {
-
-        throw new Error(`packRects error: ${e.message}`);
-    }
+    // Возврат результата в вашем формате
+    return {
+        binW: Math.round(binW),
+        binH: Math.round(binH),
+        rects: packedRects.map(r => ({
+            l: Math.round(r.l),
+            t: Math.round(r.t),
+            r: Math.round(r.r),
+            b: Math.round(r.b),
+            elementId: r.elementId,
+            rotateIndex: r.rotateIndex
+        }))
+    };
 };
+
 
 
 
@@ -484,7 +273,7 @@ const checkPins = (libElements, packagesData) => {
 }
 
 const calculateNetworks = (wires) => {
-
+    // function combine all connected pins into networks
     const getConnectedIds = (tconnPos, wiresSet) => {
         const connected = new Set()
         for (const wireId of wiresSet) {
@@ -535,7 +324,8 @@ const calculateNetworks = (wires) => {
     }
 
 
-    const nets = []
+    const nets = {}
+    let netIndex = 1
     let wireSet = new Set(Object.keys(wires))
 
     while (wireSet.size > 0) {
@@ -544,7 +334,8 @@ const calculateNetworks = (wires) => {
 
         //  console.log(prettify(wires[wireId], 0));
         const netCollect = examineWire(wireId, wireSet);
-        nets.push(netCollect)
+        nets[netIndex] = netCollect
+        netIndex++
     }
     // console.log(prettify(nets, 1))
     return nets;
@@ -552,22 +343,19 @@ const calculateNetworks = (wires) => {
 }
 
 
-const calcNetworkPins = (nets, pins, elements) => {
-    const result = []
-    for (const net of nets) {
-        const collect = []
-        for (const pin of net) {
+const calcNetworkPins = (nets, pins) => {
+
+    // function collect pins for each network
+    const networkPins = {}
+    for (const [netIndex, netPins] of Object.entries(nets)) {
+        networkPins[netIndex] = []
+        for (const pin of netPins) {
 
             const elemPin = pins.find(p => p.elementId === pin.elementId && p.pinName === pin.pinIdx)
-            let pos = elemPin.pinPos
-
-            pos = rotate(pos, elemPin.rotateIndex)
-            pos = add(pos, elements[elemPin.elementId].anchor)
-            collect.push(pos)
+            networkPins[netIndex].push(elemPin.pinPos)
         }
-        result.push(collect)
     }
-    return result
+    return networkPins
 }
 
 export const doRoute = async (data) => {
@@ -613,9 +401,9 @@ export const doRoute = async (data) => {
         }
 
         // pack rects on the PCB
-        console.log(prettify(packagesRects,1))
+        // console.log(prettify(packagesRects, 1))
         const packResult = packRects(packagesRects);
-        console.log(prettify(packResult,2))
+        // console.log(prettify(packResult, 2))
 
 
         // convert packed rects to draw-ready structure
@@ -639,39 +427,31 @@ export const doRoute = async (data) => {
             const rotateIndex = packedRect.rotateIndex
 
             // get real element placing
-            packedRect = packedRect.toArray()
-            //packedRect = round(divide(packedRect, PCB_UNIT))
+            packedRect = [packedRect.l, packedRect.t, packedRect.r, packedRect.b]
 
             // get physical package
             const pkg = packagesData[elem.packageId]
 
-            // distance from pcb start to element
-            // let elemPos = [packedRect.l, packedRect.t]
-            // elemPos = roundPoint(divide(elemPos, PCB_UNIT))
-            // console.log(`elemPos: ${elemPos}`)
-
             // element bounds
             let packageBounds = [...pkg.bounds]
-            // packageBounds = round(divide(packageBounds, PCB_UNIT))
-            const rotatedPackageBounds = rotate(packageBounds, rotateIndex)
-
+            let rotatedPackageBounds = rotate(packageBounds, rotateIndex)
+            rotatedPackageBounds = normalize(rotatedPackageBounds);
 
             // first pin (anchor) position
             let anchor = [packedRect[0] - rotatedPackageBounds[0], packedRect[1] - rotatedPackageBounds[1]]
 
             for (const [pinName, pinCoords] of Object.entries(pkg.pins)) {
 
-                //  let pinPos = divide(pinCoords, PCB_UNIT)
+                let pinPos = rotate(pinCoords, rotateIndex)
+                pinPos = add(pinPos, anchor)
                 const pin = {
                     elementId: elemId,
                     pinName: pinName,
-                    // anchor: anchor,
-                    pinPos: pinCoords,
-                    rotateIndex: rotateIndex
+                    pinPos: pinPos,
                 }
                 pins.push(pin);
             }
-
+            // console.log(prettify(pins, 1))
             // const textPos = divide(pkg.textPos, PCB_UNIT)
 
             const text = `${lib.abbr}${elem.typeIndex}`
@@ -695,16 +475,18 @@ export const doRoute = async (data) => {
 
 
         const pinsInNetworks = calculateNetworks(data.schemaElements.wires)
-        const posInNetworks = calcNetworkPins(pinsInNetworks, pins, elements)
+        const posInNetworks = calcNetworkPins(pinsInNetworks, pins)
 
-        const allPinCoords = pins.map(p => {
-            let pos = rotate(p.pinPos, p.rotateIndex)
-            pos = add(pos, elements[p.elementId].anchor);
+      /*  const allPinCoords = pins.map(pin => {
+            const elem = elements[pin.elementId]
+            let pos = rotate(pin.pinPos, elem.rotateIndex)
+            pos = add(pos, elem.anchor);
             return pos
         });
+*/
 
 
-        const routeResult = routePcb(pcbSizeNodes, posInNetworks, allPinCoords)
+        const routeResult = routePcb(pcbSizeNodes, posInNetworks, pins)
 
         if (routeResult.errors.length > 0) {
             resultErrors.push(...routeResult.errors)

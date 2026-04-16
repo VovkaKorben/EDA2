@@ -160,7 +160,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
 
 
             const drawDebugGrid = () => {//
-                ctx.strokeStyle = pcbColor.DEBUG
+                ctx.strokeStyle = pcbColor.DEBUG_GRID
                 const sz = 5
 
 
@@ -292,7 +292,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                     // draw two circles
                     ctx.beginPath()
                     ctx.fillStyle = pcbColor.COPPER
-                    ctx.arc(...pinPos, zoomUnits / 3, 0, 2 * Math.PI)
+                    ctx.arc(...pinPos, zoomUnits / 1.5, 0, 2 * Math.PI)
                     ctx.fill()
 
                 })
@@ -304,7 +304,7 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 ctx.save()
                 try {
                     ctx.beginPath()
-                    ctx.lineWidth = zoomUnits / 3;
+                    ctx.lineWidth = zoomUnits / 1.5;
                     // each network
                     Object.values(routeData.copper).forEach(net => {
 
@@ -370,38 +370,97 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
             const drawElementsBound = () => {
                 ctx.save()
                 try {
-                    ctx.strokeStyle = 'rgb(255, 0, 0)'
+                    ctx.strokeStyle = pcbColor.ELEM
                     ctx.setLineDash([10, 3]);
                     Object.values(routeData.elements).forEach(elem => {
                         // console.log(elem.text, prettify(elem.packageBounds, 0))
                         ctx.save()
                         try {
 
-
-                            let translatePoint = [...elem.anchor]
-                            translatePoint = multiply(translatePoint, zoomUnits)
-                            translatePoint = add(translatePoint, startPt)
-                            translatePoint = adjustPoint(translatePoint)
-                            ctx.translate(...translatePoint)
+                            let anchor = multiply(elem.anchor, zoomUnits);
+                            anchor = add(anchor, startPt);
+                            ctx.translate(...anchor);
                             ctx.rotate(elem.rotateIndex * Math.PI / 2);
 
+                            let b = multiply(elem.packageBounds, zoomUnits);
+                            b = normalize(b)
 
-                            let bounds = [...elem.packageBounds]
-                            bounds = multiply(bounds, zoomUnits)
+                            // 4. Округляем только финальные экранные пиксели при отрисовке
+                            // Это гарантирует, что ширина и высота останутся честными
+                            ctx.strokeRect(
+                                Math.round(b[0]),
+                                Math.round(b[1]),
+                                Math.round(b[2]) - Math.round(b[0]),
+                                Math.round(b[3]) - Math.round(b[1])
+                            );
 
-                            bounds[2] = Math.round(bounds[2] - bounds[0])
-                            bounds[3] = Math.round(bounds[3] - bounds[1])
-                            bounds[0] = Math.round(bounds[0])
-                            bounds[1] = Math.round(bounds[1])
-                            // bounds = rectToDrawable(bounds)
 
-                            ctx.strokeRect(...bounds)
+                            /*   let translatePoint = [...elem.anchor]
+                               translatePoint = multiply(translatePoint, zoomUnits)
+                               translatePoint = add(translatePoint, startPt)
+                               translatePoint = adjustPoint(translatePoint)
+                               ctx.translate(...translatePoint)
+                               ctx.rotate(elem.rotateIndex * Math.PI / 2);
+   
+   
+                               let bounds = [...elem.packageBounds]
+                               bounds = multiply(bounds, zoomUnits)
+   
+                               bounds[2] = Math.round(bounds[2] - bounds[0])
+                               bounds[3] = Math.round(bounds[3] - bounds[1])
+                               bounds[0] = Math.round(bounds[0])
+                               bounds[1] = Math.round(bounds[1])
+                               // bounds = rectToDrawable(bounds)
+   
+                               ctx.strokeRect(...bounds)
+                               */
                         } finally {
                             ctx.restore()
                         }
                         //
 
                     })
+                } finally {
+                    ctx.restore()
+                }
+
+            }
+            const drawDebug = () => {
+                ctx.save()
+                try {
+
+
+
+
+
+                    ctx.fillStyle = pcbColor.DEBUG;
+                    ctx.textAlign = 'left'
+                    ctx.textBaseline = 'middle'
+                    ctx.font = `${view.zoomValue}px Arial`;
+
+                    routeData.pins.forEach(pin => {
+                        let { pinName,pinPos, rotateIndex, elementId } = pin
+
+                        const elem = routeData.elements[elementId]
+                        // calculate pin position in parrots
+                        pinPos = rotate(pinPos, rotateIndex)
+                        pinPos = add(pinPos, elem.anchor)
+                        pinPos = add(pinPos, [1,0])
+
+                        // calculate parrots to screen
+                        pinPos = multiply(pinPos, zoomUnits)
+                        pinPos = add(pinPos, startPt)
+                        pinPos = adjustPoint(pinPos)
+                        ctx.fillText(`${pinName} (${elementId})`, ...pinPos);
+
+
+                    })
+
+
+
+
+
+
                 } finally {
                     ctx.restore()
                 }
@@ -454,7 +513,10 @@ const RouteShow = ({ libElements, schemaElements, layers, onError }) => {
                 drawElements()
             }
 
+            if (layerVisible.DEBUG) {
+                drawDebug()
 
+            }
 
 
         } catch (e) {

@@ -28,10 +28,11 @@ export const pcbColor = Object.freeze({
     BOUND: '#750000',
     SILK: '#000',
     COPPER: '#8d5e00',
-    DEBUG: '#00000035',
+    DEBUG_GRID: '#00000015',
     ELEM: '#f00f',
     BLUE: '#0000ff44',
-    DRILL: '#009'
+    DRILL: '#009',
+    DEBUG: '#00F'
 });
 
 export const ErrorCodes = Object.freeze({
@@ -47,5 +48,7 @@ export const LayerTypes = Object.freeze({
     COPPER: 'Copper',
     BOUND: 'PCB bound',
     GRID: 'Grid',
-    ELEMENTS: 'Elements Bound'
+    ELEMENTS: 'Elements Bound',
+    DEBUG: 'Debug'
+
 });
